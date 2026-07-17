@@ -119,6 +119,12 @@ public:
     /**
      * @brief Scan for nearby Shelly devices that advertise the RPC service.
      *
+     * A device is considered a match when it either advertises the Shelly RPC
+     * service UUID or has an advertised name starting with "Shelly" (case-
+     * insensitive).  The second criterion handles Shelly devices that omit the
+     * service UUID from their advertisement packets (e.g. when in pairing
+     * mode).
+     *
      * Results can be read with getScanResultCount() / getScanResult() and
      * connected to with connectToScanResult().
      *

@@ -153,11 +153,22 @@ bool ShellyBleRpc::scan(uint32_t durationMs, const char* nameFilter) {
 
     for (int i = 0; i < results.getCount(); ++i) {
         const NimBLEAdvertisedDevice* device = results.getDevice(i);
-        if (!device || !device->isAdvertisingService(serviceUuid)) {
+        if (!device) {
             continue;
         }
 
         String name = device->haveName() ? String(device->getName().c_str()) : String();
+
+        // A device matches if it advertises the Shelly RPC service UUID, or if
+        // its name starts with "Shelly" (Shelly devices do not always include
+        // the service UUID in their advertisement, e.g. when in pairing mode).
+        bool hasServiceUuid = device->isAdvertisingService(serviceUuid);
+        bool hasShellyName  = name.length() >= 6 &&
+                              name.substring(0, 6).equalsIgnoreCase("Shelly");
+        if (!hasServiceUuid && !hasShellyName) {
+            continue;
+        }
+
         if (nameFilter && nameFilter[0] != '\0' && !name.equals(nameFilter)) {
             continue;
         }

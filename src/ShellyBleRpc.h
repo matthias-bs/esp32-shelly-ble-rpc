@@ -25,6 +25,7 @@
 #include <NimBLEDevice.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <vector>
 
 // ---------------------------------------------------------------------------
 // Shelly / mOS BLE RPC UUIDs
@@ -43,6 +44,8 @@
 
 /** Default timeout for RPC calls in milliseconds. */
 #define SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS  10000U
+/** Default scan duration in milliseconds. */
+#define SHELLY_BLE_RPC_DEFAULT_SCAN_MS     5000U
 /** Maximum accumulated response size (bytes) before truncation. */
 #define SHELLY_BLE_RPC_BUFFER_SIZE         4096U
 
@@ -72,6 +75,13 @@
  */
 class ShellyBleRpc {
 public:
+    struct ScanResult {
+        String  address;      ///< BLE address, e.g. "AA:BB:CC:DD:EE:FF"
+        String  name;         ///< Advertised device name, may be empty
+        int     rssi;         ///< RSSI reported during the scan
+        uint8_t addressType;  ///< BLE_ADDR_PUBLIC or BLE_ADDR_RANDOM
+    };
+
     ShellyBleRpc();
     ~ShellyBleRpc();
 
@@ -105,6 +115,46 @@ public:
      * @return true if the connection was established and the RPC service found.
      */
     bool connect(const NimBLEAddress& address);
+
+    /**
+     * @brief Scan for nearby Shelly devices that advertise the RPC service.
+     *
+     * Results can be read with getScanResultCount() / getScanResult() and
+     * connected to with connectToScanResult().
+     *
+     * @param durationMs Scan duration in milliseconds.
+     * @param nameFilter Optional exact advertised-name filter, or nullptr.
+     * @return true if at least one matching device was found.
+     */
+    bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS,
+              const char* nameFilter = nullptr);
+
+    /** @return Number of matching devices from the last scan. */
+    size_t getScanResultCount() const;
+
+    /**
+     * @brief Copy one scan result from the last scan.
+     * @param index Result index from 0 to getScanResultCount() - 1.
+     * @param result Output scan result.
+     * @return true if @p index was valid.
+     */
+    bool getScanResult(size_t index, ScanResult& result) const;
+
+    /**
+     * @brief Connect using a result from the most recent scan.
+     * @param index Result index from the last scan.
+     * @return true if the connection was established and the RPC service found.
+     */
+    bool connectToScanResult(size_t index);
+
+    /**
+     * @brief Scan and connect to the strongest matching Shelly device.
+     * @param durationMs Scan duration in milliseconds.
+     * @param nameFilter Optional exact advertised-name filter, or nullptr.
+     * @return true if a matching device was found and connected.
+     */
+    bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS,
+                        const char* nameFilter = nullptr);
 
     /** @brief Disconnect from the Shelly device. */
     void disconnect();
@@ -296,4 +346,5 @@ private:
 
     String               _responseBuffer;      ///< Accumulated response fragments
     SemaphoreHandle_t    _responseSemaphore;   ///< Signalled when last fragment arrives
+    std::vector<ScanResult> _scanResults;      ///< Matching devices from the last scan
 };

@@ -90,6 +90,11 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
         return false;
     }
 
+    NimBLEScan* pScan = NimBLEDevice::getScan();
+    if (pScan && pScan->isScanning()) {
+        pScan->stop();
+    }
+
     // Reuse an existing NimBLEClient if one was already created.
     if (_pClient == nullptr) {
         _pClient = NimBLEDevice::createClient();
@@ -113,6 +118,112 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
 
     _debugLog("Ready (MTU=%d)", _pClient->getMTU());
     return true;
+}
+
+bool ShellyBleRpc::scan(uint32_t durationMs, const char* nameFilter) {
+    if (!_initDone) {
+        _debugLog("Call begin() before scan()");
+        return false;
+    }
+    if (isConnected()) {
+        _debugLog("Disconnect before scan()");
+        return false;
+    }
+
+    _scanResults.clear();
+
+    NimBLEScan* pScan = NimBLEDevice::getScan();
+    if (!pScan) {
+        _debugLog("Failed to get NimBLE scanner");
+        return false;
+    }
+
+    pScan->stop();
+    pScan->clearResults();
+    pScan->setInterval(100);
+    pScan->setWindow(100);
+    pScan->setActiveScan(true);
+
+    _debugLog("Scanning for Shelly RPC service for %lu ms ...", durationMs);
+
+    NimBLEScanResults results =
+        pScan->getResults(durationMs > 0 ? durationMs : SHELLY_BLE_RPC_DEFAULT_SCAN_MS,
+                          false);
+    NimBLEUUID serviceUuid(SHELLY_BLE_RPC_SERVICE_UUID);
+
+    for (int i = 0; i < results.getCount(); ++i) {
+        const NimBLEAdvertisedDevice* device = results.getDevice(i);
+        if (!device || !device->isAdvertisingService(serviceUuid)) {
+            continue;
+        }
+
+        String name = device->haveName() ? String(device->getName().c_str()) : String();
+        if (nameFilter && nameFilter[0] != '\0' && !name.equals(nameFilter)) {
+            continue;
+        }
+
+        ScanResult result;
+        result.address     = String(device->getAddress().toString().c_str());
+        result.name        = name;
+        result.rssi        = device->getRSSI();
+        result.addressType = device->getAddress().getType();
+        _scanResults.push_back(result);
+
+        _debugLog("Scan hit: %s RSSI=%d name='%s' type=%u",
+                  result.address.c_str(),
+                  result.rssi,
+                  result.name.length() ? result.name.c_str() : "(none)",
+                  result.addressType);
+    }
+
+    pScan->clearResults();
+    _debugLog("Scan complete: %u matching device(s)",
+              static_cast<unsigned>(_scanResults.size()));
+    return !_scanResults.empty();
+}
+
+size_t ShellyBleRpc::getScanResultCount() const {
+    return _scanResults.size();
+}
+
+bool ShellyBleRpc::getScanResult(size_t index, ScanResult& result) const {
+    if (index >= _scanResults.size()) {
+        return false;
+    }
+    result = _scanResults[index];
+    return true;
+}
+
+bool ShellyBleRpc::connectToScanResult(size_t index) {
+    if (index >= _scanResults.size()) {
+        _debugLog("Scan result index out of range");
+        return false;
+    }
+
+    const ScanResult& result = _scanResults[index];
+    _debugLog("Connecting to scan result %u: %s",
+              static_cast<unsigned>(index), result.address.c_str());
+    return connect(result.address.c_str(), result.addressType);
+}
+
+bool ShellyBleRpc::scanAndConnect(uint32_t durationMs, const char* nameFilter) {
+    if (!scan(durationMs, nameFilter)) {
+        return false;
+    }
+
+    size_t bestIndex = 0;
+    int    bestRssi  = _scanResults[0].rssi;
+
+    for (size_t i = 1; i < _scanResults.size(); ++i) {
+        if (_scanResults[i].rssi > bestRssi) {
+            bestRssi  = _scanResults[i].rssi;
+            bestIndex = i;
+        }
+    }
+
+    _debugLog("Connecting to strongest scan result %u (RSSI=%d)",
+              static_cast<unsigned>(bestIndex), bestRssi);
+    return connectToScanResult(bestIndex);
 }
 
 void ShellyBleRpc::disconnect() {

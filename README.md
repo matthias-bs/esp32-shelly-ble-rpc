@@ -7,6 +7,7 @@ Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE
 ## Features
 
 - Connect to any Shelly Gen2+ device by BLE address
+- Scan for nearby Shelly Gen2+ devices and connect to the strongest match
 - Send arbitrary JSON-RPC 2.0 requests and receive responses
 - Convenience wrappers for the most common Shelly components:
   - **Switch** – get / set / toggle
@@ -17,7 +18,7 @@ Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE
 - Automatic BLE MTU negotiation (up to 517 bytes) for efficient data transfer
 - FreeRTOS-semaphore-based synchronisation (no busy-wait polling)
 - Debug output toggle
-- Two ready-to-use examples
+- Three ready-to-use examples
 
 ---
 
@@ -109,6 +110,11 @@ void loop() {}
 | `bool begin(const char* deviceName = "ShellyBleRpc")` | Initialise the NimBLE stack.  Call once in `setup()`. |
 | `bool connect(const char* address, uint8_t addressType = BLE_ADDR_PUBLIC)` | Connect by MAC address string. |
 | `bool connect(const NimBLEAddress& address)` | Connect by `NimBLEAddress` object. |
+| `bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan for nearby Shelly devices advertising the RPC service. |
+| `size_t getScanResultCount() const` | Return the number of matching devices from the last scan. |
+| `bool getScanResult(size_t index, ScanResult& result) const` | Copy one scan result from the last scan. |
+| `bool connectToScanResult(size_t index)` | Connect to a device from the last scan result set. |
+| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device. |
 | `void disconnect()` | Disconnect from the device. |
 | `bool isConnected() const` | `true` if a BLE connection is active. |
 
@@ -182,6 +188,7 @@ received; parse the returned JSON to distinguish them.
 | `SHELLY_BLE_RPC_TX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7478` | Write characteristic (client → device) |
 | `SHELLY_BLE_RPC_RX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7278` | Notify characteristic (device → client) |
 | `SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS` | `10000` | Default RPC timeout (ms) |
+| `SHELLY_BLE_RPC_DEFAULT_SCAN_MS` | `5000` | Default BLE scan duration (ms) |
 | `SHELLY_BLE_RPC_BUFFER_SIZE` | `4096` | Max accumulated response size (bytes) |
 
 ---
@@ -202,6 +209,22 @@ toggles it, and waits.
 static const char*   SHELLY_BLE_ADDR  = "AA:BB:CC:DD:EE:FF";
 static const uint8_t SHELLY_ADDR_TYPE = BLE_ADDR_PUBLIC;
 static const uint8_t SWITCH_ID        = 0;
+```
+
+### ShellyBleScanConnect
+
+[`examples/ShellyBleScanConnect/ShellyBleScanConnect.ino`](examples/ShellyBleScanConnect/ShellyBleScanConnect.ino)
+
+Scans for nearby Shelly devices advertising the BLE RPC service, prints the
+matching results, and connects to the strongest match. Optionally filters by
+the exact advertised device name.
+
+**Configure** by editing the constants at the top of the sketch:
+
+```cpp
+static const char* SHELLY_NAME_FILTER = "";
+static const uint8_t SWITCH_ID        = 0;
+static const uint32_t SCAN_DURATION_MS = 5000;
 ```
 
 ### ShellyBleWiFiConfig

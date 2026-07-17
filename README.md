@@ -217,13 +217,13 @@ static const uint8_t SWITCH_ID        = 0;
 
 Scans for nearby Shelly devices advertising the BLE RPC service, prints the
 matching results, and connects to the strongest match. Optionally filters by
-the exact advertised device name.
+the exact advertised device name, then reads generic Shelly RPC data that is
+available on any supported device class.
 
 **Configure** by editing the constants at the top of the sketch:
 
 ```cpp
 static const char* SHELLY_NAME_FILTER = "";
-static const uint8_t SWITCH_ID        = 0;
 static const uint32_t SCAN_DURATION_MS = 5000;
 ```
 

@@ -31,6 +31,14 @@ void ShellyBleRpc::ClientCallbacks::onDisconnect(NimBLEClient* pClient, int reas
     }
 }
 
+void ShellyBleRpc::ClientCallbacks::onAuthenticationComplete(NimBLEConnInfo& connInfo) {
+    if (_parent->_debug) {
+        Serial.printf("[ShellyBleRpc] Authentication %s (encrypted: %s)\n",
+                      connInfo.isEncrypted() ? "succeeded" : "failed",
+                      connInfo.isEncrypted() ? "yes" : "no");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
@@ -72,6 +80,13 @@ bool ShellyBleRpc::begin(const char* deviceName) {
         // Request a larger ATT MTU so that fewer BLE fragments are needed
         // per RPC message (the actual MTU is negotiated with the peer).
         NimBLEDevice::setMTU(517);
+
+        // Configure "Just Works" BLE bonding so that Shelly devices in
+        // pairing mode can complete authentication before GATT operations.
+        // Bonding=true, MITM=false, SC=false → no user interaction required.
+        NimBLEDevice::setSecurityAuth(true, false, false);
+        NimBLEDevice::setSecurityIOCap(BLE_HS_IO_NO_INPUT_OUTPUT);
+
         _initDone = true;
     }
     if (!_pCallbacks) {
@@ -106,6 +121,15 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
     if (!_pClient->connect(address)) {
         _debugLog("Connection failed");
         return false;
+    }
+
+    // Establish an encrypted/authenticated session before accessing GATT.
+    // Shelly devices in pairing mode require BLE bonding; for already-paired
+    // devices this re-establishes encryption using the stored bond.
+    // The call is non-fatal: some devices do not enforce security and will
+    // expose their characteristics without encryption.
+    if (!_pClient->secureConnection()) {
+        _debugLog("Warning: secure connection not established; attempting service setup anyway");
     }
 
     _debugLog("Connected – setting up RPC service ...");

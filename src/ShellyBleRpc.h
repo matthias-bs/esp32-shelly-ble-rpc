@@ -333,6 +333,7 @@ private:
         explicit ClientCallbacks(ShellyBleRpc* parent) : _parent(parent) {}
         void onConnect(NimBLEClient* pClient) override;
         void onDisconnect(NimBLEClient* pClient, int reason) override;
+        void onAuthenticationComplete(NimBLEConnInfo& connInfo) override;
     private:
         ShellyBleRpc* _parent;
     };

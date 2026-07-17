@@ -159,7 +159,7 @@ bool ShellyBleRpc::_setupService() {
         return false;
     }
 
-    if (!_pRxChar->registerForNotify(_staticNotifyCallback)) {
+    if (!_pRxChar->subscribe(true, _staticNotifyCallback)) {
         _debugLog("Failed to register for notifications on RX characteristic");
         return false;
     }

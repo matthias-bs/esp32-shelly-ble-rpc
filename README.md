@@ -1,2 +1,267 @@
 # esp32-shelly-ble-rpc
-Arduino library for controlling Shelly devices by RPC via BLE from an ESP32
+
+Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE** from an **ESP32**, using [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino).
+
+---
+
+## Features
+
+- Connect to any Shelly Gen2+ device by BLE address
+- Send arbitrary JSON-RPC 2.0 requests and receive responses
+- Convenience wrappers for the most common Shelly components:
+  - **Switch** – get / set / toggle
+  - **Input** – get state
+  - **Temperature / Humidity** – read sensor values
+  - **Cover / Roller** – open / close / stop / go-to-position
+  - **Shelly** – device info, status, config, reboot
+- Automatic BLE MTU negotiation (up to 517 bytes) for efficient data transfer
+- FreeRTOS-semaphore-based synchronisation (no busy-wait polling)
+- Debug output toggle
+- Two ready-to-use examples
+
+---
+
+## Requirements
+
+| Component | Notes |
+|-----------|-------|
+| ESP32 board | Any variant with Bluetooth (ESP32, ESP32-S3, etc.) |
+| Arduino core for ESP32 | ≥ 2.x recommended |
+| [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino) | ≥ 1.4.0 |
+| Shelly device | Gen2 or later with BLE enabled |
+
+> **Note:** Do **not** run the WiFi AP (config mode) and BLE (normal mode) at
+> the same time.  The examples handle this by using only one radio at a time
+> and rebooting between modes.
+
+---
+
+## Installation
+
+### Arduino IDE (Library Manager)
+
+1. Open **Sketch → Include Library → Manage Libraries …**
+2. Search for **esp32-shelly-ble-rpc** and install.
+3. Also install **NimBLE-Arduino** if not already present.
+
+### Manual / PlatformIO
+
+Clone or download this repository and place it in your Arduino libraries
+folder (usually `~/Documents/Arduino/libraries/`), or add it to your
+`platformio.ini`:
+
+```ini
+lib_deps =
+    https://github.com/matthias-bs/esp32-shelly-ble-rpc.git
+    h2zero/NimBLE-Arduino
+```
+
+---
+
+## Shelly device setup
+
+Before the ESP32 can communicate with a Shelly device over BLE:
+
+1. Open the **Shelly mobile app** or the **Shelly web UI**.
+2. Navigate to **Settings → Connectivity → Bluetooth** and enable it.
+3. Note the **BLE Address** shown in **Settings → Device Info**
+   (format `AA:BB:CC:DD:EE:FF`).  You will need this address in your sketch.
+
+---
+
+## Quick start
+
+```cpp
+#include <ShellyBleRpc.h>
+
+ShellyBleRpc shelly;
+
+void setup() {
+    Serial.begin(115200);
+    shelly.setDebug(true);
+    shelly.begin();
+
+    if (!shelly.connect("AA:BB:CC:DD:EE:FF")) {
+        Serial.println("Connection failed");
+        return;
+    }
+
+    String info;
+    if (shelly.shellyGetDeviceInfo(info)) {
+        Serial.println(info);          // JSON response
+    }
+
+    String res;
+    shelly.switchSet(0, true, res);    // Turn switch 0 on
+}
+
+void loop() {}
+```
+
+---
+
+## API reference
+
+### Lifecycle
+
+| Method | Description |
+|--------|-------------|
+| `bool begin(const char* deviceName = "ShellyBleRpc")` | Initialise the NimBLE stack.  Call once in `setup()`. |
+| `bool connect(const char* address, uint8_t addressType = BLE_ADDR_PUBLIC)` | Connect by MAC address string. |
+| `bool connect(const NimBLEAddress& address)` | Connect by `NimBLEAddress` object. |
+| `void disconnect()` | Disconnect from the device. |
+| `bool isConnected() const` | `true` if a BLE connection is active. |
+
+### Generic RPC
+
+```cpp
+bool call(const char* method, const char* params,
+          String& response,
+          uint32_t timeoutMs = SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS);
+```
+
+Sends `{"id":<n>,"method":"<method>","params":<params>}` and waits for
+the JSON response.  Returns `true` when a response was received in time.
+Both success (`"result"`) and error (`"error"`) responses count as
+received; parse the returned JSON to distinguish them.
+
+### Convenience methods
+
+#### Device
+
+| Method | RPC call |
+|--------|----------|
+| `shellyGetDeviceInfo(response)` | `Shelly.GetDeviceInfo` |
+| `shellyGetStatus(response)` | `Shelly.GetStatus` |
+| `shellyGetConfig(response)` | `Shelly.GetConfig` |
+| `shellyReboot(response)` | `Shelly.Reboot` (500 ms delay) |
+
+#### Switch
+
+| Method | RPC call |
+|--------|----------|
+| `switchGet(id, response)` | `Switch.Get` |
+| `switchSet(id, state, response)` | `Switch.Set` |
+| `switchToggle(id, response)` | `Switch.Toggle` |
+
+#### Input
+
+| Method | RPC call |
+|--------|----------|
+| `inputGet(id, response)` | `Input.Get` |
+
+#### Temperature / Humidity
+
+| Method | RPC call |
+|--------|----------|
+| `temperatureGet(id, response)` | `Temperature.Get` |
+| `humidityGet(id, response)` | `Humidity.Get` |
+
+#### Cover / Roller
+
+| Method | RPC call |
+|--------|----------|
+| `coverOpen(id, response)` | `Cover.Open` |
+| `coverClose(id, response)` | `Cover.Close` |
+| `coverStop(id, response)` | `Cover.Stop` |
+| `coverGoToPosition(id, pos, response)` | `Cover.GoToPosition` (`pos` 0–100 %) |
+
+### Configuration
+
+| Method | Description |
+|--------|-------------|
+| `void setDebug(bool enable)` | Enable/disable verbose `[ShellyBleRpc]` output on `Serial`. |
+| `void setTimeout(uint32_t ms)` | Override the default RPC timeout. |
+| `uint16_t getMTU() const` | Return the negotiated ATT MTU with the peer. |
+
+### Constants
+
+| Constant | Default | Description |
+|----------|---------|-------------|
+| `SHELLY_BLE_RPC_SERVICE_UUID` | `5F6D4F53-5F52-5043-5F53-56435F49445F` | mOS RPC GATT service UUID |
+| `SHELLY_BLE_RPC_TX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7478` | Write characteristic (client → device) |
+| `SHELLY_BLE_RPC_RX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7278` | Notify characteristic (device → client) |
+| `SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS` | `10000` | Default RPC timeout (ms) |
+| `SHELLY_BLE_RPC_BUFFER_SIZE` | `4096` | Max accumulated response size (bytes) |
+
+---
+
+## Examples
+
+### ShellyBleFixed
+
+[`examples/ShellyBleFixed/ShellyBleFixed.ino`](examples/ShellyBleFixed/ShellyBleFixed.ino)
+
+Connects to a Shelly device whose BLE address is hardcoded in the sketch.
+Reads device info once on startup, then repeatedly reads the switch state,
+toggles it, and waits.
+
+**Configure** by editing the constants at the top of the sketch:
+
+```cpp
+static const char*   SHELLY_BLE_ADDR  = "AA:BB:CC:DD:EE:FF";
+static const uint8_t SHELLY_ADDR_TYPE = BLE_ADDR_PUBLIC;
+static const uint8_t SWITCH_ID        = 0;
+```
+
+### ShellyBleWiFiConfig
+
+[`examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino`](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
+
+On the **first boot** (or when the BOOT button is held at reset) the ESP32
+starts a WiFi access point `ShellyBLE-Config` and hosts a simple web form
+at `http://192.168.4.1`.  Enter the Shelly BLE address and save; the device
+restarts and connects to Shelly automatically from then on.
+
+| Step | Action |
+|------|--------|
+| 1 | Connect laptop/phone to `ShellyBLE-Config` (password `12345678`) |
+| 2 | Open `http://192.168.4.1` in a browser |
+| 3 | Enter the BLE address and press **Save & Restart** |
+| 4 | On restart the ESP32 connects to the Shelly via BLE |
+| Re-configure | Hold GPIO0 LOW while pressing RESET |
+
+---
+
+## BLE RPC protocol details
+
+The library implements the **mOS (mongoose-os) BLE RPC** protocol:
+
+1. **Service UUID** `5F6D4F53-5F52-5043-5F53-56435F49445F` ("_mOS_RPC_SVC_ID_")
+2. **TX characteristic** (Write Without Response) – the client writes RPC
+   request fragments here.
+3. **RX characteristic** (Notify) – the device sends RPC response fragments
+   here.
+4. **Framing**: each fragment starts with a 1-byte header equal to the
+   number of remaining fragments after this one (`0` = last fragment).
+
+```
+Fragment n (not last):  [ n_remaining | payload bytes ]
+Last fragment:          [ 0x00        | payload bytes ]
+```
+
+The payload across all fragments is concatenated to form the complete
+JSON-RPC 2.0 object.
+
+---
+
+## Limitations / known issues
+
+- **Single instance**: Only one `ShellyBleRpc` object should be active at a
+  time.  The static notify callback always forwards to the most recently
+  constructed instance.
+- **No concurrent calls**: `call()` is not thread-safe; do not invoke it from
+  multiple FreeRTOS tasks simultaneously.
+- **WiFi + BLE coexistence**: While ESP32 supports coexistence, the examples
+  deliberately avoid running both at once.  If your application needs both,
+  configure WiFi/BLE coexistence in `sdkconfig` and call `begin()` after
+  WiFi is set up.
+- **Authentication**: BLE pairing with a passkey is not handled by the library
+  itself.  If the Shelly device requires passkey authentication, configure
+  NimBLE security callbacks before calling `connect()`.
+
+---
+
+## License
+
+MIT – see [LICENSE](LICENSE).

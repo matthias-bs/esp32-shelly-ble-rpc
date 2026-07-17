@@ -185,8 +185,9 @@ received; parse the returned JSON to distinguish them.
 | Constant | Default | Description |
 |----------|---------|-------------|
 | `SHELLY_BLE_RPC_SERVICE_UUID` | `5F6D4F53-5F52-5043-5F53-56435F49445F` | mOS RPC GATT service UUID |
-| `SHELLY_BLE_RPC_TX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7478` | Write characteristic (client → device) |
-| `SHELLY_BLE_RPC_RX_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F7278` | Notify characteristic (device → client) |
+| `SHELLY_BLE_RPC_DATA_CHAR_UUID` | `5F6D4F53-5F52-5043-5F64-6174615F5F5F` | Read/write data characteristic for request and response bytes |
+| `SHELLY_BLE_RPC_TX_CTL_CHAR_UUID` | `5F6D4F53-5F52-5043-5F74-785F63746C5F` | Write-only request-length control characteristic |
+| `SHELLY_BLE_RPC_RX_CTL_CHAR_UUID` | `5F6D4F53-5F52-5043-5F72-785F63746C5F` | Read/notify response-length control characteristic |
 | `SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS` | `10000` | Default RPC timeout (ms) |
 | `SHELLY_BLE_RPC_DEFAULT_SCAN_MS` | `5000` | Default BLE scan duration (ms) |
 | `SHELLY_BLE_RPC_BUFFER_SIZE` | `4096` | Max accumulated response size (bytes) |

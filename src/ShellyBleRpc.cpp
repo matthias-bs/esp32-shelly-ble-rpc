@@ -45,6 +45,7 @@ void ShellyBleRpc::ClientCallbacks::onAuthenticationComplete(NimBLEConnInfo& con
 
 ShellyBleRpc::ShellyBleRpc()
     : _pClient(nullptr),
+      _pDataChar(nullptr),
       _pTxChar(nullptr),
       _pRxChar(nullptr),
       _pCallbacks(nullptr),
@@ -121,15 +122,6 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
     if (!_pClient->connect(address)) {
         _debugLog("Connection failed");
         return false;
-    }
-
-    // Establish an encrypted/authenticated session before accessing GATT.
-    // Shelly devices in pairing mode require BLE bonding; for already-paired
-    // devices this re-establishes encryption using the stored bond.
-    // The call is non-fatal: some devices do not enforce security and will
-    // expose their characteristics without encryption.
-    if (!_pClient->secureConnection()) {
-        _debugLog("Warning: secure connection not established; attempting service setup anyway");
     }
 
     _debugLog("Connected – setting up RPC service ...");
@@ -265,6 +257,7 @@ void ShellyBleRpc::disconnect() {
     if (_pClient && _pClient->isConnected()) {
         _pClient->disconnect();
     }
+    _pDataChar = nullptr;
     _pTxChar = nullptr;
     _pRxChar = nullptr;
 }
@@ -285,29 +278,42 @@ bool ShellyBleRpc::_setupService() {
         return false;
     }
 
-    _pTxChar = pSvc->getCharacteristic(SHELLY_BLE_RPC_TX_CHAR_UUID);
+    _pDataChar = pSvc->getCharacteristic(SHELLY_BLE_RPC_DATA_CHAR_UUID);
+    if (!_pDataChar) {
+        _debugLog("Data characteristic not found (UUID: %s)", SHELLY_BLE_RPC_DATA_CHAR_UUID);
+        return false;
+    }
+    if (!_pDataChar->canRead()) {
+        _debugLog("Data characteristic is not readable");
+        return false;
+    }
+    if (!_pDataChar->canWriteNoResponse() && !_pDataChar->canWrite()) {
+        _debugLog("Data characteristic is not writable");
+        return false;
+    }
+
+    _pTxChar = pSvc->getCharacteristic(SHELLY_BLE_RPC_TX_CTL_CHAR_UUID);
     if (!_pTxChar) {
-        _debugLog("TX characteristic not found (UUID: %s)", SHELLY_BLE_RPC_TX_CHAR_UUID);
+        _debugLog("TX control characteristic not found (UUID: %s)", SHELLY_BLE_RPC_TX_CTL_CHAR_UUID);
         return false;
     }
     if (!_pTxChar->canWriteNoResponse() && !_pTxChar->canWrite()) {
-        _debugLog("TX characteristic is not writable");
+        _debugLog("TX control characteristic is not writable");
         return false;
     }
 
-    _pRxChar = pSvc->getCharacteristic(SHELLY_BLE_RPC_RX_CHAR_UUID);
+    _pRxChar = pSvc->getCharacteristic(SHELLY_BLE_RPC_RX_CTL_CHAR_UUID);
     if (!_pRxChar) {
-        _debugLog("RX characteristic not found (UUID: %s)", SHELLY_BLE_RPC_RX_CHAR_UUID);
+        _debugLog("RX control characteristic not found (UUID: %s)", SHELLY_BLE_RPC_RX_CTL_CHAR_UUID);
         return false;
     }
-    if (!_pRxChar->canNotify()) {
-        _debugLog("RX characteristic does not support notifications");
+    if (!_pRxChar->canRead()) {
+        _debugLog("RX control characteristic is not readable");
         return false;
     }
 
-    if (!_pRxChar->subscribe(true, _staticNotifyCallback)) {
-        _debugLog("Failed to register for notifications on RX characteristic");
-        return false;
+    if (_pRxChar->canNotify() && !_pRxChar->subscribe(true, _staticNotifyCallback)) {
+        _debugLog("Warning: failed to subscribe to RX control notifications; falling back to polling");
     }
 
     return true;
@@ -318,36 +324,30 @@ bool ShellyBleRpc::_setupService() {
 // ---------------------------------------------------------------------------
 
 void ShellyBleRpc::_sendFragmented(const uint8_t* data, size_t length) {
-    // ATT MTU overhead is 3 bytes (opcode + handle), so the usable payload
-    // per write is (MTU - 3).  One additional byte is consumed by the mOS
-    // RPC fragment-count header, leaving (MTU - 4) bytes of RPC data per
-    // write.  A conservative floor of 19 bytes is applied when MTU < 23.
-    uint16_t mtu = _pClient->getMTU();
-    size_t maxPayload = (mtu > 3) ? static_cast<size_t>(mtu - 3) : 20u;
-    size_t chunkData  = (maxPayload > 1) ? (maxPayload - 1) : 1u;
+    uint8_t frameLength[4] = {
+        static_cast<uint8_t>((length >> 24) & 0xFF),
+        static_cast<uint8_t>((length >> 16) & 0xFF),
+        static_cast<uint8_t>((length >> 8) & 0xFF),
+        static_cast<uint8_t>(length & 0xFF),
+    };
 
-    size_t numChunks = (length + chunkData - 1) / chunkData;
+    bool ctlUseResponse = !_pTxChar->canWriteNoResponse();
+    _pTxChar->writeValue(frameLength, sizeof(frameLength), ctlUseResponse);
 
-    for (size_t i = 0; i < numChunks; i++) {
-        size_t offset       = i * chunkData;
-        size_t thisDataSize = (offset + chunkData <= length)
-                                  ? chunkData
+    // ATT MTU overhead is 3 bytes, so a data write can carry up to MTU - 3
+    // bytes of frame payload. Chunking may be arbitrary as long as the total
+    // matches the length submitted via the TX control characteristic.
+    uint16_t mtu      = _pClient->getMTU();
+    size_t   chunkLen = (mtu > 3) ? static_cast<size_t>(mtu - 3) : 20u;
+
+    for (size_t offset = 0; offset < length; offset += chunkLen) {
+        size_t thisChunkLen = ((offset + chunkLen) <= length)
+                                  ? chunkLen
                                   : (length - offset);
+        bool dataUseResponse = !_pDataChar->canWriteNoResponse();
+        _pDataChar->writeValue(data + offset, thisChunkLen, dataUseResponse);
 
-        // Fragment format: [remaining_after_this (1 byte)] [data ...]
-        size_t   chunkLen = thisDataSize + 1;
-        uint8_t* chunk    = new uint8_t[chunkLen];
-        chunk[0] = static_cast<uint8_t>(numChunks - 1 - i);
-        memcpy(&chunk[1], &data[offset], thisDataSize);
-
-        // Prefer Write Without Response for throughput; fall back to Write.
-        bool useResponse = !_pTxChar->canWriteNoResponse();
-        _pTxChar->writeValue(chunk, chunkLen, useResponse);
-
-        delete[] chunk;
-
-        // Brief inter-fragment delay to avoid overflowing the peer's RX buffer.
-        if (i + 1 < numChunks) {
+        if (offset + thisChunkLen < length) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
@@ -366,24 +366,15 @@ void ShellyBleRpc::_staticNotifyCallback(NimBLERemoteCharacteristic* /*pChar*/,
 }
 
 void ShellyBleRpc::_handleNotification(const uint8_t* pData, size_t length) {
-    if (length == 0) return;
+    if (length < 4) return;
 
-    uint8_t remaining = pData[0];
+    uint32_t responseLength =
+        (static_cast<uint32_t>(pData[0]) << 24) |
+        (static_cast<uint32_t>(pData[1]) << 16) |
+        (static_cast<uint32_t>(pData[2]) << 8)  |
+        static_cast<uint32_t>(pData[3]);
 
-    // Append the fragment payload (everything after the 1-byte header).
-    for (size_t i = 1; i < length; i++) {
-        if (_responseBuffer.length() < SHELLY_BLE_RPC_BUFFER_SIZE) {
-            _responseBuffer += static_cast<char>(pData[i]);
-        }
-    }
-
-    _debugLog("Notify: remaining=%u, bufLen=%u", remaining,
-              static_cast<unsigned>(_responseBuffer.length()));
-
-    if (remaining == 0) {
-        // Last (or only) fragment – signal the waiting call().
-        xSemaphoreGive(_responseSemaphore);
-    }
+    _debugLog("RX notify: response length=%lu", static_cast<unsigned long>(responseLength));
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +387,7 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         _debugLog("Not connected");
         return false;
     }
-    if (!_pTxChar || !_pRxChar) {
+    if (!_pDataChar || !_pTxChar || !_pRxChar) {
         _debugLog("Service not set up");
         return false;
     }
@@ -415,22 +406,63 @@ bool ShellyBleRpc::call(const char* method, const char* params,
 
     _debugLog("RPC >> %s", request.c_str());
 
-    // Drain any leftover semaphore signal from a previous (timed-out) call.
-    xSemaphoreTake(_responseSemaphore, 0);
     _responseBuffer = "";
-
-    // Send the request in BLE fragments.
     _sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
                     request.length());
 
-    // Block until the last response fragment arrives or timeout.
-    if (xSemaphoreTake(_responseSemaphore,
-                        pdMS_TO_TICKS(timeoutMs)) != pdTRUE) {
-        _debugLog("RPC timeout (%lu ms) for method %s", timeoutMs, method);
+    uint32_t deadline = millis() + timeoutMs;
+    uint32_t frameLength = 0;
+
+    while (static_cast<int32_t>(millis() - deadline) < 0) {
+        std::string lenValue = _pRxChar->readValue();
+        if (lenValue.length() >= 4) {
+            frameLength =
+                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[0])) << 24) |
+                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[1])) << 16) |
+                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[2])) << 8)  |
+                static_cast<uint32_t>(static_cast<uint8_t>(lenValue[3]));
+            if (frameLength != 0) {
+                break;
+            }
+        }
+        delay(100);
+    }
+
+    if (frameLength == 0) {
+        _debugLog("RPC timeout (%lu ms) waiting for response length for method %s",
+                  timeoutMs, method);
         return false;
     }
 
-    response = _responseBuffer;
+    _debugLog("RPC response length=%lu", static_cast<unsigned long>(frameLength));
+
+    while (_responseBuffer.length() < frameLength &&
+           static_cast<int32_t>(millis() - deadline) < 0) {
+        std::string chunk = _pDataChar->readValue();
+        if (chunk.empty()) {
+            delay(20);
+            continue;
+        }
+
+        for (size_t i = 0; i < chunk.length() &&
+                           _responseBuffer.length() < SHELLY_BLE_RPC_BUFFER_SIZE; ++i) {
+            _responseBuffer += chunk[i];
+        }
+    }
+
+    if (_responseBuffer.length() == 0) {
+        _debugLog("RPC timeout (%lu ms) waiting for response body for method %s",
+                  timeoutMs, method);
+        return false;
+    }
+
+    if (_responseBuffer.length() < frameLength) {
+        _debugLog("Short RPC response: expected %lu bytes, got %u",
+                  static_cast<unsigned long>(frameLength),
+                  static_cast<unsigned>(_responseBuffer.length()));
+    }
+
+    response = _responseBuffer.substring(0, frameLength);
     _debugLog("RPC << %s", response.c_str());
     return true;
 }

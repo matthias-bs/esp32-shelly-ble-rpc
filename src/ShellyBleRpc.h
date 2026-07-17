@@ -33,14 +33,17 @@
 // These are the standard mOS (mongoose-os) RPC-over-GATT UUIDs used by
 // Shelly Gen2+ devices.  Each UUID encodes the corresponding ASCII string:
 //   Service  "_mOS_RPC_SVC_ID_"  → 5F6D4F53-5F52-5043-5F53-56435F49445F
-//   TX char  "_mOS_RPC_data_tx"  → 5F6D4F53-5F52-5043-5F64-6174615F7478
-//   RX char  "_mOS_RPC_data_rx"  → 5F6D4F53-5F52-5043-5F64-6174615F7278
+//   Data     "_mOS_RPC_data___"  → 5F6D4F53-5F52-5043-5F64-6174615F5F5F
+//   TX ctl   "_mOS_RPC_tx_ctl_"  → 5F6D4F53-5F52-5043-5F74-785F63746C5F
+//   RX ctl   "_mOS_RPC_rx_ctl_"  → 5F6D4F53-5F52-5043-5F72-785F63746C5F
 // ---------------------------------------------------------------------------
 #define SHELLY_BLE_RPC_SERVICE_UUID  "5F6D4F53-5F52-5043-5F53-56435F49445F"
-/** Write without response – used to send RPC requests to the Shelly device. */
-#define SHELLY_BLE_RPC_TX_CHAR_UUID  "5F6D4F53-5F52-5043-5F64-6174615F7478"
-/** Notify – used to receive RPC responses from the Shelly device. */
-#define SHELLY_BLE_RPC_RX_CHAR_UUID  "5F6D4F53-5F52-5043-5F64-6174615F7278"
+/** Read/write data attribute used to send request bytes and read response bytes. */
+#define SHELLY_BLE_RPC_DATA_CHAR_UUID    "5F6D4F53-5F52-5043-5F64-6174615F5F5F"
+/** Write-only control attribute used to submit request frame length. */
+#define SHELLY_BLE_RPC_TX_CTL_CHAR_UUID  "5F6D4F53-5F52-5043-5F74-785F63746C5F"
+/** Read/notify control attribute used to obtain response frame length. */
+#define SHELLY_BLE_RPC_RX_CTL_CHAR_UUID  "5F6D4F53-5F52-5043-5F72-785F63746C5F"
 
 /** Default timeout for RPC calls in milliseconds. */
 #define SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS  10000U
@@ -299,17 +302,19 @@ private:
     // Internal helpers
     // -----------------------------------------------------------------------
 
-    /** @brief Discover the RPC service and subscribe to notifications. */
+    /** @brief Discover the RPC service and its data / control characteristics. */
     bool _setupService();
 
     /**
-     * @brief Fragment @p data into BLE-MTU-sized chunks and write them to the
-     *        TX characteristic using the mOS RPC framing (1-byte remaining-
-     *        fragment count prepended to each chunk).
+     * @brief Send one RPC frame using the Shelly BLE RPC transport.
+     *
+     * First writes the frame length (big-endian uint32) to the TX control
+     * characteristic, then writes the frame bytes to the data characteristic
+     * in BLE-MTU-sized chunks.
      */
     void _sendFragmented(const uint8_t* data, size_t length);
 
-    /** @brief Reassemble an incoming notify fragment into the response buffer. */
+    /** @brief Handle an RX-control notification carrying the response length. */
     void _handleNotification(const uint8_t* pData, size_t length);
 
     /** @brief Print a debug message prefixed with "[ShellyBleRpc] ". */
@@ -342,8 +347,9 @@ private:
     // Member variables
     // -----------------------------------------------------------------------
     NimBLEClient*               _pClient;
-    NimBLERemoteCharacteristic* _pTxChar;      ///< Write char (client → device)
-    NimBLERemoteCharacteristic* _pRxChar;      ///< Notify char (device → client)
+    NimBLERemoteCharacteristic* _pDataChar;    ///< Data char (request/response bytes)
+    NimBLERemoteCharacteristic* _pTxChar;      ///< TX control char (request length)
+    NimBLERemoteCharacteristic* _pRxChar;      ///< RX control char (response length)
     ClientCallbacks*            _pCallbacks;
 
     bool      _debug;
@@ -351,7 +357,7 @@ private:
     bool      _initDone;
     int       _rpcId;
 
-    String               _responseBuffer;      ///< Accumulated response fragments
-    SemaphoreHandle_t    _responseSemaphore;   ///< Signalled when last fragment arrives
+    String               _responseBuffer;      ///< Accumulated response bytes
+    SemaphoreHandle_t    _responseSemaphore;   ///< Reserved for async receive use
     std::vector<ScanResult> _scanResults;      ///< Matching devices from the last scan
 };

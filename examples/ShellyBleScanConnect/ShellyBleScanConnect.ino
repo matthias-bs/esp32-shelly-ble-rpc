@@ -28,6 +28,9 @@ static const char* SHELLY_NAME_FILTER = "";
 /** Scan time in milliseconds. */
 static const uint32_t SCAN_DURATION_MS = 5000;
 
+/** Switch component index to toggle on every loop iteration (0-based). */
+static const uint8_t SWITCH_ID = 0;
+
 /** Time between status reads in milliseconds. */
 static const uint32_t LOOP_INTERVAL_MS = 10000;
 
@@ -127,5 +130,15 @@ void loop() {
     } else {
         Serial.println("WARNING: Shelly.GetStatus failed");
     }
+
+    // Toggle switch after reading status.
+    Serial.printf("Toggling switch %u ...\n", SWITCH_ID);
+    String toggleResult;
+    if (shelly.switchToggle(SWITCH_ID, toggleResult)) {
+        Serial.println("Toggle result: " + toggleResult);
+    } else {
+        Serial.println("WARNING: Switch.Toggle failed");
+    }
+
     delay(LOOP_INTERVAL_MS);
 }

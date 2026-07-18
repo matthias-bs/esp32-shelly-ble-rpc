@@ -52,7 +52,9 @@ ShellyBleRpc::ShellyBleRpc()
       _debug(false),
       _timeoutMs(SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS),
       _initDone(false),
-      _rpcId(1)
+      _rpcId(1),
+      _responseLength(0),
+      _responseLengthReady(false)
 {
     _responseSemaphore = xSemaphoreCreateBinary();
     _instance = this;
@@ -395,6 +397,12 @@ void ShellyBleRpc::_handleNotification(const uint8_t* pData, size_t length) {
         (static_cast<uint32_t>(pData[2]) << 8)  |
         static_cast<uint32_t>(pData[3]);
 
+    _responseLength = responseLength;
+    _responseLengthReady = true;
+    if (_responseSemaphore) {
+        xSemaphoreGive(_responseSemaphore);
+    }
+
     _debugLog("RX notify: response length=%lu", static_cast<unsigned long>(responseLength));
 }
 
@@ -428,6 +436,11 @@ bool ShellyBleRpc::call(const char* method, const char* params,
     _debugLog("RPC >> %s", request.c_str());
 
     _responseBuffer = "";
+    _responseLength = 0;
+    _responseLengthReady = false;
+    if (_responseSemaphore) {
+        while (xSemaphoreTake(_responseSemaphore, 0) == pdTRUE) {}
+    }
     if (!_sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
                          request.length())) {
         _debugLog("RPC send failed for method %s (write error – ensure the "
@@ -437,28 +450,16 @@ bool ShellyBleRpc::call(const char* method, const char* params,
     }
 
     uint32_t deadline = millis() + timeoutMs;
-    uint32_t frameLength = 0;
 
-    while (static_cast<int32_t>(millis() - deadline) < 0) {
-        std::string lenValue = _pRxChar->readValue();
-        if (lenValue.length() >= 4) {
-            frameLength =
-                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[0])) << 24) |
-                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[1])) << 16) |
-                (static_cast<uint32_t>(static_cast<uint8_t>(lenValue[2])) << 8)  |
-                static_cast<uint32_t>(static_cast<uint8_t>(lenValue[3]));
-            if (frameLength != 0) {
-                break;
-            }
-        }
-        delay(100);
-    }
-
-    if (frameLength == 0) {
+    if (!_responseSemaphore ||
+        xSemaphoreTake(_responseSemaphore, pdMS_TO_TICKS(timeoutMs)) != pdTRUE ||
+        !_responseLengthReady || _responseLength == 0) {
         _debugLog("RPC timeout (%lu ms) waiting for response length for method %s",
                   timeoutMs, method);
         return false;
     }
+
+    uint32_t frameLength = _responseLength;
 
     _debugLog("RPC response length=%lu", static_cast<unsigned long>(frameLength));
 

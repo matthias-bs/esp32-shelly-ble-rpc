@@ -360,6 +360,8 @@ private:
     int       _rpcId;
 
     String               _responseBuffer;      ///< Accumulated response bytes
-    SemaphoreHandle_t    _responseSemaphore;   ///< Reserved for async receive use
+    SemaphoreHandle_t    _responseSemaphore;   ///< Signals RX control notifications
+    volatile uint32_t    _responseLength;      ///< Length from RX control notification
+    volatile bool        _responseLengthReady; ///< True once _responseLength is updated
     std::vector<ScanResult> _scanResults;      ///< Matching devices from the last scan
 };

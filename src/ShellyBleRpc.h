@@ -6,9 +6,9 @@
  * BLE RPC protocol used by all Shelly Gen2+ devices.
  *
  * BLE RPC Protocol overview:
- *   - A GATT service with two characteristics is used: one for writing requests
- *     (client → device) and one for receiving notifications with responses
- *     (device → client).
+ *   - A GATT service with three characteristics is used: TX control (client → device)
+ *     for the request length, data (client ↔ device) for request/response bytes,
+ *     and RX control (device → client) for the response length (read/notify).
  *   - Data is split into fragments.  Each fragment starts with a 1-byte header
  *     that carries the number of remaining fragments after this one (0 = last).
  *   - The payload is a JSON-RPC 2.0 object, e.g.

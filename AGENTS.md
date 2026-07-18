@@ -59,8 +59,8 @@ arduino-lint --library-manager update --compliance strict
 - Preferred local workflow in this repo uses the helper scripts in [.vscode/](.vscode):
 
 ```bash
-WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
-bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh compile
+WORKSPACE_FOLDER=/absolute/path/to/esp32-shelly-ble-rpc \
+bash "$WORKSPACE_FOLDER/.vscode/arduino-compile-runner.sh" compile
 ```
 
 - The helper reads defaults from [.vscode/arduino.json](.vscode/arduino.json):

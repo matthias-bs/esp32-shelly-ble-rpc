@@ -54,6 +54,64 @@ done
 arduino-lint --library-manager update --compliance strict
 ```
 
+### Compile Notes
+
+- Preferred local workflow in this repo uses the helper scripts in [.vscode/](.vscode):
+
+```bash
+WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
+bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh compile
+```
+
+- The helper reads defaults from [.vscode/arduino.json](.vscode/arduino.json):
+  - `fqbn`: `esp32:esp32:esp32:DebugLevel=none`
+  - `sketch`: `examples/ShellyBleFixed`
+  - `port`: `/dev/ttyUSB0`
+
+- If `arduino-cli` resolves to a snap binary and fails in sandboxed environments, use the bundled VS Code Arduino CLI explicitly:
+
+```bash
+VSCODE_ARDUINO_CLI=/home/mp/.vscode/extensions/vscode-arduino.vscode-arduino-community-0.7.2-linux-x64/assets/platform/linux-x64/arduino-cli/arduino-cli.app \
+WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
+bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh compile
+```
+
+- To compile a different sketch, set `sketch` in [.vscode/arduino.json](.vscode/arduino.json) or pass `--active /absolute/path/to/example.ino` via the helper.
+
+### Upload Notes
+
+- Preferred upload workflow uses the same helper and config file defaults:
+
+```bash
+WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
+bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh upload
+```
+
+- If snap-based `arduino-cli` fails in sandboxed environments, use the bundled VS Code Arduino CLI explicitly:
+
+```bash
+VSCODE_ARDUINO_CLI=/home/mp/.vscode/extensions/vscode-arduino.vscode-arduino-community-0.7.2-linux-x64/assets/platform/linux-x64/arduino-cli/arduino-cli.app \
+WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
+bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh upload
+```
+
+- Upload port comes from `.vscode/arduino.json` (`port`) unless overridden with `--port`.
+- The helper auto-tries detected `/dev/ttyACM*` and `/dev/ttyUSB*` ports if the configured port fails.
+
+### Serial Logging Notes
+
+- For reset + monitor + logfile in one command:
+
+```bash
+WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
+python3 /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/serial_logger.py \
+  --port /dev/ttyUSB0 --baud 115200 --reset --timeout 25
+```
+
+- Logs are written to `extras/logs/` with timestamped filenames.
+- Timeout-based stop is expected behavior when `--timeout` is set (exit code 4 from the logger indicates timeout reached, not a script crash).
+- For continuous monitoring, set `--timeout 0` (or use the VS Code task `Serial Logger with Reset (monitor + log to extras/logs/)`).
+
 ## Architecture Map
 
 - Public API and constants: [src/ShellyBleRpc.h](src/ShellyBleRpc.h)

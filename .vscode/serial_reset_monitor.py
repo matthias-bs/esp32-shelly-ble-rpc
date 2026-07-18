@@ -18,8 +18,8 @@ import time
 try:
     import serial
 except ImportError:
-    print('Error: pyserial is required. Install with: pip install pyserial')
-    sys.exit(1)
+    print('Error: pyserial is required. Install with: pip install pyserial', file=sys.stderr)
+    sys.exit(2)
 
 
 def reset_board(port: str, baud: int) -> int:

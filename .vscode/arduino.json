@@ -1,0 +1,7 @@
+{
+  "fqbn": "esp32:esp32:esp32:DebugLevel=none",
+  "sketch": "examples/ShellyBleFixed",
+  "port": "/dev/ttyUSB0",
+  "baudRate": 115200,
+  "uploadMode": "auto"
+}

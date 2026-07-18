@@ -28,7 +28,7 @@ Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE
 |-----------|-------|
 | ESP32 board | Any variant with Bluetooth (ESP32, ESP32-S3, etc.) |
 | Arduino core for ESP32 | ≥ 2.x recommended |
-| [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino) | ≥ 1.4.0 |
+| [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino) | ≥ 2.0.0 |
 | Shelly device | Gen2 or later with BLE enabled |
 
 > **Note:** Do **not** run the WiFi AP (config mode) and BLE (normal mode) at

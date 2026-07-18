@@ -68,6 +68,22 @@ Before the ESP32 can communicate with a Shelly device over BLE:
 3. Note the **BLE Address** shown in **Settings → Device Info**
    (format `AA:BB:CC:DD:EE:FF`).  You will need this address in your sketch.
 
+### BLE pairing / bonding (first-time setup)
+
+Some Shelly firmware versions and configurations require the ESP32 to be
+**bonded** (paired) with the Shelly device before allowing GATT writes.  If
+you see `writeValue failed` errors accompanied by `secureConnection failed`
+in the debug output, you need to complete the one-time BLE pairing:
+
+1. In the Shelly app or web UI go to
+   **Settings → Connectivity → Bluetooth → Enable Bluetooth pairing**.
+2. While pairing mode is active, run your ESP32 sketch.  The library calls
+   `secureConnection()` automatically; NimBLE will perform a "Just Works"
+   bond (no passkey required) and store the keys in the ESP32's NVS flash.
+3. After the first successful connection the bond is persisted.
+   Pairing mode on the Shelly can be disabled again – subsequent connections
+   use the stored Long-Term Key to re-encrypt without re-pairing.
+
 ---
 
 ## Quick start
@@ -280,9 +296,10 @@ JSON-RPC 2.0 object.
   deliberately avoid running both at once.  If your application needs both,
   configure WiFi/BLE coexistence in `sdkconfig` and call `begin()` after
   WiFi is set up.
-- **Authentication**: BLE pairing with a passkey is not handled by the library
-  itself.  If the Shelly device requires passkey authentication, configure
-  NimBLE security callbacks before calling `connect()`.
+- **Authentication**: The library performs "Just Works" BLE bonding automatically.
+  On first use with a device that requires bonding, enable **Bluetooth pairing**
+  in the Shelly app / web UI so that the initial bond can be established.
+  See [BLE pairing / bonding](#ble-pairing--bonding-first-time-setup) above.
 
 ---
 

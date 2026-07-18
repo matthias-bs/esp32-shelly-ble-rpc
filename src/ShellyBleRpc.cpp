@@ -124,7 +124,21 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
         return false;
     }
 
-    _debugLog("Connected – setting up RPC service ...");
+    // Proactively establish BLE security before any GATT operations.
+    // When the ESP32 has previously bonded with this Shelly (keys stored in
+    // NVS), NimBLE will use the Long-Term Key to encrypt the link without
+    // requiring the user to enable pairing mode again.  On first use the
+    // Shelly must have "Bluetooth pairing" enabled in the Shelly app or web
+    // UI so that the pairing can complete.  If security is not required by
+    // the device, this call is a no-op from the user's perspective.
+    _debugLog("Establishing BLE security ...");
+    if (!_pClient->secureConnection()) {
+        _debugLog("BLE security not established – if the Shelly requires "
+                  "authentication, enable Bluetooth pairing in the Shelly "
+                  "app / web UI and reconnect to bond the devices");
+    }
+
+    _debugLog("Setting up RPC service ...");
 
     if (!_setupService()) {
         _debugLog("RPC service setup failed – disconnecting");
@@ -323,7 +337,7 @@ bool ShellyBleRpc::_setupService() {
 // Internal – fragmented write
 // ---------------------------------------------------------------------------
 
-void ShellyBleRpc::_sendFragmented(const uint8_t* data, size_t length) {
+bool ShellyBleRpc::_sendFragmented(const uint8_t* data, size_t length) {
     uint8_t frameLength[4] = {
         static_cast<uint8_t>((length >> 24) & 0xFF),
         static_cast<uint8_t>((length >> 16) & 0xFF),
@@ -332,7 +346,10 @@ void ShellyBleRpc::_sendFragmented(const uint8_t* data, size_t length) {
     };
 
     bool ctlUseResponse = !_pTxChar->canWriteNoResponse();
-    _pTxChar->writeValue(frameLength, sizeof(frameLength), ctlUseResponse);
+    if (!_pTxChar->writeValue(frameLength, sizeof(frameLength), ctlUseResponse)) {
+        _debugLog("TX control write failed (BLE security / bonding required?)");
+        return false;
+    }
 
     // ATT MTU overhead is 3 bytes, so a data write can carry up to MTU - 3
     // bytes of frame payload. Chunking may be arbitrary as long as the total
@@ -345,12 +362,16 @@ void ShellyBleRpc::_sendFragmented(const uint8_t* data, size_t length) {
                                   ? chunkLen
                                   : (length - offset);
         bool dataUseResponse = !_pDataChar->canWriteNoResponse();
-        _pDataChar->writeValue(data + offset, thisChunkLen, dataUseResponse);
+        if (!_pDataChar->writeValue(data + offset, thisChunkLen, dataUseResponse)) {
+            _debugLog("Data write failed at offset %u", static_cast<unsigned>(offset));
+            return false;
+        }
 
         if (offset + thisChunkLen < length) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
     }
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -407,8 +428,13 @@ bool ShellyBleRpc::call(const char* method, const char* params,
     _debugLog("RPC >> %s", request.c_str());
 
     _responseBuffer = "";
-    _sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
-                    request.length());
+    if (!_sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
+                         request.length())) {
+        _debugLog("RPC send failed for method %s (write error – ensure the "
+                  "device is bonded or does not require BLE authentication)",
+                  method);
+        return false;
+    }
 
     uint32_t deadline = millis() + timeoutMs;
     uint32_t frameLength = 0;

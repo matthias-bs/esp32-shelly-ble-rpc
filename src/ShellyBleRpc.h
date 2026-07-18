@@ -311,8 +311,10 @@ private:
      * First writes the frame length (big-endian uint32) to the TX control
      * characteristic, then writes the frame bytes to the data characteristic
      * in BLE-MTU-sized chunks.
+     *
+     * @return true if all writes succeeded; false on the first write error.
      */
-    void _sendFragmented(const uint8_t* data, size_t length);
+    bool _sendFragmented(const uint8_t* data, size_t length);
 
     /** @brief Handle an RX-control notification carrying the response length. */
     void _handleNotification(const uint8_t* pData, size_t length);

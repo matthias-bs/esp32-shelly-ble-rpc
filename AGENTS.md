@@ -103,8 +103,8 @@ bash "$WORKSPACE_FOLDER/.vscode/arduino-compile-runner.sh" upload
 - For reset + monitor + logfile in one command:
 
 ```bash
-WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
-python3 /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/serial_logger.py \
+WORKSPACE_FOLDER=/absolute/path/to/esp32-shelly-ble-rpc \
+python3 "$WORKSPACE_FOLDER/.vscode/serial_logger.py" \
   --port /dev/ttyUSB0 --baud 115200 --reset --timeout 25
 ```
 

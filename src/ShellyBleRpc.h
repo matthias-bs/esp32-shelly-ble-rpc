@@ -9,8 +9,8 @@
  *   - A GATT service with three characteristics is used: TX control (client → device)
  *     for the request length, data (client ↔ device) for request/response bytes,
  *     and RX control (device → client) for the response length (read/notify).
- *   - Data is split into fragments.  Each fragment starts with a 1-byte header
- *     that carries the number of remaining fragments after this one (0 = last).
+ *   - Data is written in MTU-sized chunks without a per-chunk header; the total
+ *     frame length is sent via TX control and response length via RX control.
  *   - The payload is a JSON-RPC 2.0 object, e.g.
  *       {"id":1,"method":"Switch.Set","params":{"id":0,"on":true}}
  *

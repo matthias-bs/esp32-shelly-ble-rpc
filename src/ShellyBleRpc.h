@@ -192,11 +192,11 @@ public:
      * @param params    JSON parameter string, e.g. "{\"id\":0,\"on\":true}".
      *                  Pass nullptr or "{}" for methods with no parameters.
      * @param response  Output: JSON response string.
-     * @param timeoutMs Timeout in milliseconds (default: SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS).
+     * @param timeoutMs Timeout in milliseconds. Pass 0 to use the value set via setTimeout().
      * @return true if a response was received within the timeout.
      */
     bool call(const char* method, const char* params, String& response,
-              uint32_t timeoutMs = SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS);
+              uint32_t timeoutMs = 0);
 
     // -----------------------------------------------------------------------
     // Shelly component convenience methods

@@ -486,6 +486,8 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         _debugLog("Short RPC response: expected %lu bytes, got %u",
                   static_cast<unsigned long>(frameLength),
                   static_cast<unsigned>(_responseBuffer.length()));
+        response = _responseBuffer;
+        return false;
     }
 
     response = _responseBuffer.substring(0, frameLength);

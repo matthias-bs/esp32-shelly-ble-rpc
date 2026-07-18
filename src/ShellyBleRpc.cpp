@@ -412,7 +412,7 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         _debugLog("Service not set up");
         return false;
     }
-
+    if (timeoutMs == 0) timeoutMs = _timeoutMs;
     // Build the JSON-RPC 2.0 request.
     String request;
     request.reserve(128);

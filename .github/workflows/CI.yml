@@ -80,11 +80,12 @@ jobs:
         if: ${{ env.run-build == 'true' }}
         run:
           |
+          skip_pattern='${{ steps.prep.outputs.skip-pattern }}'
           for example in $(find $PWD/examples -name '*.ino' | sort); do
             # check whether to skip this sketch
-            if [ ! -z '${{ steps.prep.outputs.skip-pattern }}' ] && [[ ${example} =~ ${{ steps.prep.outputs.skip-pattern }} ]]; then
+            if [ -n "$skip_pattern" ] && [[ ${example} =~ $skip_pattern ]]; then
               # skip sketch
-              echo -e "\n\033[1;33mSkipped ${example##*/} (matched with ${{ steps.prep.outputs.skip-pattern }})\033[0m";
+              echo -e "\n\033[1;33mSkipped ${example##*/} (matched with $skip_pattern)\033[0m";
             else
               # build sketch
               echo -e "\n\033[1;33mBuilding ${example##*/} ... \033[0m";

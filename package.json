@@ -1,0 +1,23 @@
+{
+  "name": "esp32-shelly-ble-rpc",
+  "version": "1.0.0",
+  "description": "Arduino library for controlling Shelly devices by RPC via BLE from an ESP32",
+  "frameworks": "arduino",
+  "platforms": "ESP32",
+  "directories": {
+    "src": "src"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matthias-bs/esp32-shelly-ble-rpc.git"
+  },
+  "author": "Matthias Prinke",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/matthias-bs/esp32-shelly-ble-rpc/issues"
+  },
+  "homepage": "https://github.com/matthias-bs/esp32-shelly-ble-rpc#readme",
+  "dependencies": {
+    "NimBLE-Arduino": "h2zero/NimBLE-Arduino#semver:^2.5.0"
+  }
+}

@@ -10,6 +10,8 @@ Behavior:
 - If --active is provided, it will search upwards for the nearest .ino file and use that sketch's folder.
 - Falls back to examples/ShellyBleFixed when no sketch can be deduced.
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os

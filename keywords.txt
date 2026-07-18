@@ -1,0 +1,48 @@
+#######################################
+# Syntax coloring for ShellyBleRpc
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+ShellyBleRpc	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+connect	KEYWORD2
+disconnect	KEYWORD2
+isConnected	KEYWORD2
+call	KEYWORD2
+shellyGetDeviceInfo	KEYWORD2
+shellyGetStatus	KEYWORD2
+shellyGetConfig	KEYWORD2
+shellyReboot	KEYWORD2
+switchGet	KEYWORD2
+switchSet	KEYWORD2
+switchToggle	KEYWORD2
+inputGet	KEYWORD2
+temperatureGet	KEYWORD2
+humidityGet	KEYWORD2
+coverOpen	KEYWORD2
+coverClose	KEYWORD2
+coverStop	KEYWORD2
+coverGoToPosition	KEYWORD2
+setDebug	KEYWORD2
+setTimeout	KEYWORD2
+getMTU	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+SHELLY_BLE_RPC_SERVICE_UUID	LITERAL1
+SHELLY_BLE_RPC_DATA_CHAR_UUID	LITERAL1
+SHELLY_BLE_RPC_TX_CTL_CHAR_UUID	LITERAL1
+SHELLY_BLE_RPC_RX_CTL_CHAR_UUID	LITERAL1
+SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS	LITERAL1
+SHELLY_BLE_RPC_DEFAULT_SCAN_MS	LITERAL1
+SHELLY_BLE_RPC_BUFFER_SIZE	LITERAL1

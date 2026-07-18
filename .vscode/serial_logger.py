@@ -33,6 +33,8 @@ Exit codes:
     3  Could not create log directory
     4  Timeout reached without finding the sentinel pattern
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os

@@ -18,6 +18,6 @@
   },
   "homepage": "https://github.com/matthias-bs/esp32-shelly-ble-rpcr#README",
   "dependencies": {
-    "NimBLE-Arduino": "h2zero/NimBLE-Arduino#semver:^2.5.0",
+    "NimBLE-Arduino": "h2zero/NimBLE-Arduino#semver:^2.5.0"
   }
 }

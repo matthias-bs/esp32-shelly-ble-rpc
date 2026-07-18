@@ -12,7 +12,7 @@
     "url": "git+https://github.com/matthias-bs/esp32-shelly-ble-rpc.git"
   },
   "author": "Matthias Prinke",
-  "license": "MIT license",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/matthias-bs/esp32-shelly-ble-rpc/issues"
   },

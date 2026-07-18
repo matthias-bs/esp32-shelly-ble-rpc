@@ -139,13 +139,14 @@ void loop() {}
 ```cpp
 bool call(const char* method, const char* params,
           String& response,
-          uint32_t timeoutMs = SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS);
+          uint32_t timeoutMs = 0);
 ```
 
 Sends `{"id":<n>,"method":"<method>","params":<params>}` and waits for
 the JSON response.  Returns `true` when a response was received in time.
 Both success (`"result"`) and error (`"error"`) responses count as
 received; parse the returned JSON to distinguish them.
+Pass `timeoutMs = 0` (the default) to use the timeout configured via `setTimeout()`.
 
 ### Convenience methods
 
@@ -265,23 +266,35 @@ restarts and connects to Shelly automatically from then on.
 
 ## BLE RPC protocol details
 
-The library implements the **mOS (mongoose-os) BLE RPC** protocol:
+The library implements the **mOS (mongoose-os) BLE RPC** transport over GATT:
 
 1. **Service UUID** `5F6D4F53-5F52-5043-5F53-56435F49445F` ("_mOS_RPC_SVC_ID_")
-2. **TX characteristic** (Write Without Response) – the client writes RPC
-   request fragments here.
-3. **RX characteristic** (Notify) – the device sends RPC response fragments
-   here.
-4. **Framing**: each fragment starts with a 1-byte header equal to the
-   number of remaining fragments after this one (`0` = last fragment).
+2. **TX control characteristic** (Write/Write-Without-Response) – the client
+   writes a 4-byte big-endian unsigned integer representing the total request
+   frame length before sending any payload bytes.
+3. **Data characteristic** (Read/Write/Write-Without-Response) – the client
+   writes the request payload in BLE-MTU-sized chunks (no per-chunk header);
+   the server assembles them into the complete frame using the length from step 2.
+4. **RX control characteristic** (Read/Notify) – the device notifies the client
+   with a 4-byte big-endian unsigned integer representing the total response
+   frame length once the full response is ready.  The client waits for this
+   notification via a FreeRTOS semaphore.
+5. **Data characteristic (read)** – after receiving the RX control notification
+   the client reads the response payload from the data characteristic in chunks
+   until `frameLength` bytes have been accumulated.
 
 ```
-Fragment n (not last):  [ n_remaining | payload bytes ]
-Last fragment:          [ 0x00        | payload bytes ]
+Request:
+  TX_CTL write: [ len_3 | len_2 | len_1 | len_0 ]   (4-byte big-endian frame length)
+  DATA write(s): [ payload chunk 0 ] [ payload chunk 1 ] …
+
+Response:
+  RX_CTL notify: [ len_3 | len_2 | len_1 | len_0 ]  (4-byte big-endian frame length)
+  DATA read(s):  [ response chunk 0 ] [ response chunk 1 ] …
 ```
 
-The payload across all fragments is concatenated to form the complete
-JSON-RPC 2.0 object.
+The payload is a complete JSON-RPC 2.0 object, e.g.
+`{"id":1,"method":"Switch.Set","params":{"id":0,"on":true}}`.
 
 ---
 

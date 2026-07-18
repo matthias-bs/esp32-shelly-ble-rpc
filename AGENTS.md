@@ -71,9 +71,9 @@ bash "$WORKSPACE_FOLDER/.vscode/arduino-compile-runner.sh" compile
 - If `arduino-cli` resolves to a snap binary and fails in sandboxed environments, use the bundled VS Code Arduino CLI explicitly:
 
 ```bash
-VSCODE_ARDUINO_CLI=/home/mp/.vscode/extensions/vscode-arduino.vscode-arduino-community-0.7.2-linux-x64/assets/platform/linux-x64/arduino-cli/arduino-cli.app \
-WORKSPACE_FOLDER=/home/mp/pCloudDrive/esp32-shelly-ble-rpc \
-bash /home/mp/pCloudDrive/esp32-shelly-ble-rpc/.vscode/arduino-compile-runner.sh compile
+VSCODE_ARDUINO_CLI=/absolute/path/to/arduino-cli.app \
+WORKSPACE_FOLDER=/absolute/path/to/esp32-shelly-ble-rpc \
+bash "$WORKSPACE_FOLDER/.vscode/arduino-compile-runner.sh" compile
 ```
 
 - To compile a different sketch, set `sketch` in [.vscode/arduino.json](.vscode/arduino.json) or pass `--active /absolute/path/to/example.ino` via the helper.

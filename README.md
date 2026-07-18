@@ -1,5 +1,9 @@
 # esp32-shelly-ble-rpc
 
+[![CI](https://github.com/matthias-bs/esp32-shelly-ble-rpc/actions/workflows/CI.yml/badge.svg)](https://github.com/matthias-bs/esp32-shelly-ble-rpc/actions/workflows/CI.yml)
+[![GitHub release](https://img.shields.io/github/release/matthias-bs/esp32-shelly-ble-rpc?maxAge=3600)](https://github.com/matthias-bs/esp32-shelly-ble-rpc/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/matthias-bs/esp32-shelly-ble-rpc/blob/main/LICENSE)
+
 Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE** from an **ESP32**, using [NimBLE-Arduino](https://github.com/h2zero/NimBLE-Arduino).
 
 ---

@@ -5,7 +5,7 @@ serial_logger.py — Serial monitor with timestamped logging.
 Opens a serial port, optionally resets the board via DTR, then streams
 serial output to both stdout and a log file in extras/logs/.
 
-Log file name format (compatible with read_serial_log.py):
+Log file name format:
     <port>_<YYYY_MM_DD.HH.MM.SS.mmm>.txt
     e.g. devttyUSB0_2026_03_13.12.33.38.000.txt
 

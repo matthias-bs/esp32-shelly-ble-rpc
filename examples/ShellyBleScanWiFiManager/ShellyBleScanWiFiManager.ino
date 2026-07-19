@@ -119,7 +119,14 @@ static const char HTML_STYLE[] PROGMEM =
     "color:#fff;border:none;border-radius:4px;font-size:1em;cursor:pointer;}"
     ".btn:hover{background:#c0392b;}"
     ".note{color:#636e72;font-size:.85em;margin-top:6px;}";
-
+static String htmlEscape(String s) {
+    s.replace("&", "&amp;");
+    s.replace("<", "&lt;");
+    s.replace(">", "&gt;");
+    s.replace("\"", "&quot;");
+    s.replace("'", "&#39;");
+    return s;
+}
 static void sendPage(int code, const String& body) {
     String page;
     page.reserve(800 + body.length());

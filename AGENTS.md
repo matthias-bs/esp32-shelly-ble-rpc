@@ -17,7 +17,8 @@ Before editing code, read these files first:
 - [src/ShellyBleRpc.cpp](src/ShellyBleRpc.cpp)
 - [examples/ShellyBleFixed/ShellyBleFixed.ino](examples/ShellyBleFixed/ShellyBleFixed.ino)
 - [examples/ShellyBleScanConnect/ShellyBleScanConnect.ino](examples/ShellyBleScanConnect/ShellyBleScanConnect.ino)
-- [examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
+- [examples/ShellyBleWebConfig/ShellyBleWebConfig.ino](examples/ShellyBleWebConfig/ShellyBleWebConfig.ino)
+- [examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino](examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino)
 
 For CI behavior and supported build variants:
 
@@ -120,7 +121,7 @@ python3 "$WORKSPACE_FOLDER/.vscode/serial_logger.py" \
 - Usage patterns:
   - Fixed-address connect: [examples/ShellyBleFixed/ShellyBleFixed.ino](examples/ShellyBleFixed/ShellyBleFixed.ino)
   - Scan-and-connect flow: [examples/ShellyBleScanConnect/ShellyBleScanConnect.ino](examples/ShellyBleScanConnect/ShellyBleScanConnect.ino)
-  - WiFi config portal then BLE runtime: [examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
+  - WiFi config portal then BLE runtime: [examples/ShellyBleWebConfig/ShellyBleWebConfig.ino](examples/ShellyBleWebConfig/ShellyBleWebConfig.ino) / [examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino](examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino)
 
 ## Project-Specific Rules
 

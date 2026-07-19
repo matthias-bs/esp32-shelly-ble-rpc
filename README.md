@@ -155,11 +155,11 @@ static const char* SHELLY_NAME_FILTER = "";
 static const uint32_t SCAN_DURATION_MS = 5000;
 ```
 
-### ShellyBleWiFiConfig
+### ShellyBleWebConfig
 
-[`examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino`](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
+[`examples/ShellyBleWebConfig/ShellyBleWebConfig.ino`](examples/ShellyBleWebConfig/ShellyBleWebConfig.ino)
 
-On the **first boot** (or when the BOOT button is held at reset) the ESP32
+On the **first boot** (or when BOOT is pressed during the first 3 seconds after startup) the ESP32
 starts a WiFi access point `ShellyBLE-Config` and hosts a simple web form
 at `http://192.168.4.1`.  Enter the Shelly BLE address and save; the device
 restarts and connects to Shelly automatically from then on.
@@ -170,11 +170,11 @@ restarts and connects to Shelly automatically from then on.
 | 2 | Open `http://192.168.4.1` in a browser |
 | 3 | Enter the BLE address and press **Save & Restart** |
 | 4 | On restart the ESP32 connects to the Shelly via BLE |
-| Re-configure | Hold GPIO0 LOW while pressing RESET |
+| Re-configure | Press and hold BOOT (GPIO0) during the first 3 seconds after startup |
 
-### ShellyBleScanWiFiManager
+### ShellyBleScanWebConfig
 
-[`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
+[`examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino`](examples/ShellyBleScanWebConfig/ShellyBleScanWebConfig.ino)
 
 Combines scan-and-connect with first-boot configuration using a temporary WiFi
 access point and a minimal WebServer-based config page where you can set
@@ -183,10 +183,10 @@ value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then target
 
 | Step | Action |
 |------|--------|
-| 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
+| 1 | On first boot (or when BOOT is pressed during the first 3 seconds after startup), connect to AP `ShellyBLE-Setup` (password `12345678`) |
 | 2 | Open `http://192.168.4.1` and enter the optional exact Shelly name |
 | 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
-| Re-configure | Hold GPIO0 LOW while pressing RESET |
+| Re-configure | Press and hold BOOT (GPIO0) during the first 3 seconds after startup |
 
 ---
 

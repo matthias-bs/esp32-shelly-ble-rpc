@@ -134,7 +134,7 @@ void loop() {}
 | `size_t getScanResultCount() const` | Return the number of matching devices from the last scan. |
 | `bool getScanResult(size_t index, ScanResult& result) const` | Copy one scan result from the last scan. |
 | `bool connectToScanResult(size_t index)` | Connect to a device from the last scan result set. |
-| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device. If `nameFilter` is set, matching is exact and case-sensitive. |
+| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device that advertises the RPC service UUID, or whose advertised name starts with "Shelly" (case-insensitive). If `nameFilter` is set, matching is exact and case-sensitive. |
 | `void disconnect()` | Disconnect from the device. |
 | `bool isConnected() const` | `true` if a BLE connection is active. |
 

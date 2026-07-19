@@ -121,6 +121,75 @@ void loop() {}
 
 ---
 
+## Examples
+
+### ShellyBleFixed
+
+[`examples/ShellyBleFixed/ShellyBleFixed.ino`](examples/ShellyBleFixed/ShellyBleFixed.ino)
+
+Connects to a Shelly device whose BLE address is hardcoded in the sketch.
+Reads device info once on startup, then repeatedly reads the switch state,
+toggles it, and waits.
+
+**Configure** by editing the constants at the top of the sketch:
+
+```cpp
+static const char*   SHELLY_BLE_ADDR  = "AA:BB:CC:DD:EE:FF";
+static const uint8_t SHELLY_ADDR_TYPE = BLE_ADDR_PUBLIC;
+static const uint8_t SWITCH_ID        = 0;
+```
+
+### ShellyBleScanConnect
+
+[`examples/ShellyBleScanConnect/ShellyBleScanConnect.ino`](examples/ShellyBleScanConnect/ShellyBleScanConnect.ino)
+
+Scans for nearby Shelly devices advertising the BLE RPC service, prints the
+matching results, and connects to the strongest match. Optionally filters by
+the exact advertised device name, then reads generic Shelly RPC data that is
+available on any supported device class.
+
+**Configure** by editing the constants at the top of the sketch:
+
+```cpp
+static const char* SHELLY_NAME_FILTER = "";
+static const uint32_t SCAN_DURATION_MS = 5000;
+```
+
+### ShellyBleWiFiConfig
+
+[`examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino`](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
+
+On the **first boot** (or when the BOOT button is held at reset) the ESP32
+starts a WiFi access point `ShellyBLE-Config` and hosts a simple web form
+at `http://192.168.4.1`.  Enter the Shelly BLE address and save; the device
+restarts and connects to Shelly automatically from then on.
+
+| Step | Action |
+|------|--------|
+| 1 | Connect laptop/phone to `ShellyBLE-Config` (password `12345678`) |
+| 2 | Open `http://192.168.4.1` in a browser |
+| 3 | Enter the BLE address and press **Save & Restart** |
+| 4 | On restart the ESP32 connects to the Shelly via BLE |
+| Re-configure | Hold GPIO0 LOW while pressing RESET |
+
+### ShellyBleScanWiFiManager
+
+[`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
+
+Combines scan-and-connect with first-boot configuration using a temporary WiFi
+access point and a minimal WebServer-based config page where you can set
+an optional exact, case-sensitive Shelly advertised device name filter. The
+value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
+
+| Step | Action |
+|------|--------|
+| 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
+| 2 | Open `http://192.168.4.1` and enter the optional exact Shelly name |
+| 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
+| Re-configure | Hold GPIO0 LOW while pressing RESET |
+
+---
+
 ## API reference
 
 ### Lifecycle
@@ -212,75 +281,6 @@ Pass `timeoutMs = 0` (the default) to use the timeout configured via `setTimeout
 | `SHELLY_BLE_RPC_DEFAULT_TIMEOUT_MS` | `10000` | Default RPC timeout (ms) |
 | `SHELLY_BLE_RPC_DEFAULT_SCAN_MS` | `5000` | Default BLE scan duration (ms) |
 | `SHELLY_BLE_RPC_BUFFER_SIZE` | `4096` | Max accumulated response size (bytes) |
-
----
-
-## Examples
-
-### ShellyBleFixed
-
-[`examples/ShellyBleFixed/ShellyBleFixed.ino`](examples/ShellyBleFixed/ShellyBleFixed.ino)
-
-Connects to a Shelly device whose BLE address is hardcoded in the sketch.
-Reads device info once on startup, then repeatedly reads the switch state,
-toggles it, and waits.
-
-**Configure** by editing the constants at the top of the sketch:
-
-```cpp
-static const char*   SHELLY_BLE_ADDR  = "AA:BB:CC:DD:EE:FF";
-static const uint8_t SHELLY_ADDR_TYPE = BLE_ADDR_PUBLIC;
-static const uint8_t SWITCH_ID        = 0;
-```
-
-### ShellyBleScanConnect
-
-[`examples/ShellyBleScanConnect/ShellyBleScanConnect.ino`](examples/ShellyBleScanConnect/ShellyBleScanConnect.ino)
-
-Scans for nearby Shelly devices advertising the BLE RPC service, prints the
-matching results, and connects to the strongest match. Optionally filters by
-the exact advertised device name, then reads generic Shelly RPC data that is
-available on any supported device class.
-
-**Configure** by editing the constants at the top of the sketch:
-
-```cpp
-static const char* SHELLY_NAME_FILTER = "";
-static const uint32_t SCAN_DURATION_MS = 5000;
-```
-
-### ShellyBleWiFiConfig
-
-[`examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino`](examples/ShellyBleWiFiConfig/ShellyBleWiFiConfig.ino)
-
-On the **first boot** (or when the BOOT button is held at reset) the ESP32
-starts a WiFi access point `ShellyBLE-Config` and hosts a simple web form
-at `http://192.168.4.1`.  Enter the Shelly BLE address and save; the device
-restarts and connects to Shelly automatically from then on.
-
-| Step | Action |
-|------|--------|
-| 1 | Connect laptop/phone to `ShellyBLE-Config` (password `12345678`) |
-| 2 | Open `http://192.168.4.1` in a browser |
-| 3 | Enter the BLE address and press **Save & Restart** |
-| 4 | On restart the ESP32 connects to the Shelly via BLE |
-| Re-configure | Hold GPIO0 LOW while pressing RESET |
-
-### ShellyBleScanWiFiManager
-
-[`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
-
-Combines scan-and-connect with first-boot configuration using a temporary WiFi
-access point and a minimal WebServer-based config page where you can set
-an optional exact, case-sensitive Shelly advertised device name filter. The
-value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
-
-| Step | Action |
-|------|--------|
-| 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
-| 2 | Open `http://192.168.4.1` and enter the optional exact Shelly name |
-| 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
-| Re-configure | Hold GPIO0 LOW while pressing RESET |
 
 ---
 

@@ -278,7 +278,7 @@ value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then target
 | Step | Action |
 |------|--------|
 | 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
-| 2 | Open the captive portal and enter the optional exact Shelly name |
+| 2 | Open `http://192.168.4.1` and enter the optional exact Shelly name |
 | 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
 | Re-configure | Hold GPIO0 LOW while pressing RESET |
 

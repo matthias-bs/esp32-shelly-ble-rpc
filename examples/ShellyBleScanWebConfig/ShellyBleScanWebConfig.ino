@@ -1,5 +1,5 @@
 /**
- * ShellyBleScanWiFiManager.ino
+ * ShellyBleScanWebConfig.ino
  *
  * Example for the esp32-shelly-ble-rpc library.
  *
@@ -9,7 +9,7 @@
  *
  * Operation
  * ---------
- * First boot (or when CONFIG_PIN is held LOW at reset):
+ * First boot (or when BOOT is pressed during the startup window):
  *   - Starts a temporary WiFi configuration portal.
  *   - Lets you set an optional exact Shelly advertised device name.
  *   - Saves settings to NVS and restarts.
@@ -43,8 +43,11 @@
 // Configuration constants
 // ============================================================================
 
-/** GPIO pin that forces config mode when held LOW at boot (BOOT button on many ESP32 boards). */
+/** GPIO pin used to request reconfiguration during the startup window. */
 static const int CONFIG_PIN = 0;
+
+/** Time window after boot in which pressing BOOT enters config mode. */
+static const uint32_t RECONFIG_WINDOW_MS = 3000;
 
 /** AP SSID shown during configuration. */
 static const char* CONFIG_AP_SSID = "ShellyBLE-Setup";
@@ -80,6 +83,24 @@ static ShellyBleRpc shelly;
 
 static String configuredNameFilter;
 static bool   hasStoredConfig = false;
+
+static bool shouldEnterConfigMode() {
+    Serial.printf("Press BOOT within %lu ms after startup for web config mode.\n",
+                  static_cast<unsigned long>(RECONFIG_WINDOW_MS));
+
+    uint32_t startMs = millis();
+    while (millis() - startMs < RECONFIG_WINDOW_MS) {
+        if (digitalRead(CONFIG_PIN) == LOW) {
+            delay(30);  // Simple debounce for the BOOT button.
+            if (digitalRead(CONFIG_PIN) == LOW) {
+                return true;
+            }
+        }
+        delay(10);
+    }
+
+    return false;
+}
 
 // ============================================================================
 // NVS helpers
@@ -295,19 +316,19 @@ static void ensureConnected() {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.println("\n=== ShellyBleScanWiFiManager example ===");
+    Serial.println("\n=== ShellyBleScanWebConfig example ===");
 
     pinMode(CONFIG_PIN, INPUT_PULLUP);
 
     loadConfig();
 
-    bool forceConfig = (digitalRead(CONFIG_PIN) == LOW);
+    bool forceConfig = shouldEnterConfigMode();
     bool noConfig = !hasStoredConfig;
 
     // Start configuration on first boot or when forced by button.
     if (forceConfig || noConfig) {
         if (forceConfig) {
-            Serial.println("Config button pressed at boot.");
+            Serial.println("BOOT button detected during startup window.");
         } else {
             Serial.println("No stored configuration found; entering config mode.");
         }

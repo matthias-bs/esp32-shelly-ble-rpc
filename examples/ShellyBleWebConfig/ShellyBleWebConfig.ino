@@ -1,5 +1,5 @@
 /**
- * ShellyBleWiFiConfig.ino
+ * ShellyBleWebConfig.ino
  *
  * Example for the esp32-shelly-ble-rpc library.
  *
@@ -21,8 +21,9 @@
  *     Shelly device directly without starting the WiFi AP.
  *
  *   Force re-configuration:
- *     Hold the CONFIG_PIN (GPIO0 / BOOT button) LOW while pressing RESET.
- *     The WiFi AP starts again so the settings can be changed.
+ *     During the first RECONFIG_WINDOW_MS after boot, press and hold the
+ *     CONFIG_PIN (GPIO0 / BOOT button). The WiFi AP starts again so the
+ *     settings can be changed.
  *
  * Hardware requirements
  * ---------------------
@@ -63,11 +64,11 @@ static const IPAddress AP_IP(192, 168, 4, 1);
 /** How long (ms) to keep the AP open before giving up and rebooting. */
 static const uint32_t CONFIG_TIMEOUT_MS = 300000UL;  // 5 minutes
 
-/**
- * GPIO pin that, when held LOW at boot, forces the device into config mode.
- * GPIO0 is the BOOT button on most ESP32 DevKit boards.
- */
+/** GPIO pin used to request reconfiguration during the startup window. */
 static const int CONFIG_PIN = 0;
+
+/** Time window after boot in which pressing BOOT enters config mode. */
+static const uint32_t RECONFIG_WINDOW_MS = 3000;
 
 /** Switch component index on the Shelly device (0 = first switch). */
 static const uint8_t SWITCH_ID = 0;
@@ -85,6 +86,24 @@ static ShellyBleRpc shelly;
 
 static String  storedBleAddr;
 static uint8_t storedAddrType = BLE_ADDR_PUBLIC;
+
+static bool shouldEnterConfigMode() {
+    Serial.printf("Press BOOT within %lu ms after startup for web config mode.\n",
+                  static_cast<unsigned long>(RECONFIG_WINDOW_MS));
+
+    uint32_t startMs = millis();
+    while (millis() - startMs < RECONFIG_WINDOW_MS) {
+        if (digitalRead(CONFIG_PIN) == LOW) {
+            delay(30);  // Simple debounce for the BOOT button.
+            if (digitalRead(CONFIG_PIN) == LOW) {
+                return true;
+            }
+        }
+        delay(10);
+    }
+
+    return false;
+}
 
 // ============================================================================
 // Web server pages
@@ -245,7 +264,7 @@ static void connectToShelly() {
 void setup() {
     Serial.begin(115200);
     delay(500);
-    Serial.println("\n=== ShellyBleWiFiConfig example ===");
+    Serial.println("\n=== ShellyBleWebConfig example ===");
 
     pinMode(CONFIG_PIN, INPUT_PULLUP);
 
@@ -255,11 +274,11 @@ void setup() {
     storedAddrType = prefs.getUChar("addr_type", BLE_ADDR_PUBLIC);
     prefs.end();
 
-    bool forceConfig = (digitalRead(CONFIG_PIN) == LOW);
+    bool forceConfig = shouldEnterConfigMode();
     bool noConfig    = (storedBleAddr.length() == 0);
 
     if (forceConfig || noConfig) {
-        Serial.println(forceConfig ? "Config button pressed."
+        Serial.println(forceConfig ? "BOOT button detected during startup window."
                                    : "No stored configuration found.");
         runConfigMode();   // Does not return
     }

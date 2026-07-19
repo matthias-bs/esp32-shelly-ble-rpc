@@ -150,7 +150,7 @@ static void handleRoot() {
     body += "<label>Shelly Device Name (exact, case-sensitive, optional)</label>";
     body += "<input type='text' name='name_filter'"
             " placeholder='ShellyPlus1-ABCDEF'"
-            " value='" + configuredNameFilter + "'"
+            " value='" + htmlEscape(configuredNameFilter) + "'"
             " maxlength='" + String(MAX_NAME_FILTER_LEN) + "'>";
     body += "<p class='note'>Leave empty to connect to the strongest nearby Shelly.</p>";
     body += "<button class='btn' type='submit'>Save &amp; Restart</button>";

@@ -4,7 +4,7 @@
  * Example for the esp32-shelly-ble-rpc library.
  *
  * Combines:
- *   1) WiFiManager-based configuration of a target Shelly device name
+ *   1) WebServer-based configuration of a target Shelly device name
  *   2) BLE scan-and-connect using that configured name filter
  *
  * Operation
@@ -27,7 +27,7 @@
  *
  * Dependencies:
  *   - NimBLE-Arduino
- *   - WiFiManager
+ *   - WiFi, WebServer, Preferences (bundled with ESP32 Arduino core)
  *
  * License: MIT
  */
@@ -35,8 +35,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
-#include <vector>
-#include <WiFiManager.h>
+#include <WebServer.h>
 #include <ShellyBleRpc.h>
 
 // ============================================================================
@@ -46,14 +45,17 @@
 /** GPIO pin that forces config mode when held LOW at boot (BOOT button on many ESP32 boards). */
 static const int CONFIG_PIN = 0;
 
-/** WiFiManager AP SSID shown during configuration. */
+/** AP SSID shown during configuration. */
 static const char* CONFIG_AP_SSID = "ShellyBLE-Setup";
 
-/** WiFiManager AP password (minimum 8 characters). */
+/** AP password (minimum 8 characters). */
 static const char* CONFIG_AP_PASSWORD = "12345678";
 
 /** Configuration portal timeout in seconds. */
 static const uint32_t CONFIG_PORTAL_TIMEOUT_S = 300;
+
+/** IP address assigned to the ESP32 in AP mode. */
+static const IPAddress CONFIG_AP_IP(192, 168, 4, 1);
 
 /** Default scan duration in milliseconds. */
 static const uint32_t SCAN_DURATION_MS = 5000;
@@ -72,6 +74,7 @@ static const size_t MAX_NAME_FILTER_LEN = 40;
 // ============================================================================
 
 static Preferences prefs;
+static WebServer   server(80);
 static ShellyBleRpc shelly;
 
 static String configuredNameFilter;
@@ -98,65 +101,117 @@ static void saveConfig(const String& nameFilter) {
 }
 
 // ============================================================================
-// WiFiManager configuration
+// Web configuration portal
 // ============================================================================
 
-static void runConfigPortal() {
-    Serial.println("--- WiFiManager configuration mode ---");
-    Serial.printf("AP SSID: %s\n", CONFIG_AP_SSID);
-    Serial.println("Open the captive portal and set Shelly device name filter.");
-    Serial.println("Leave it empty to connect to any Shelly.");
+// Minimal CSS / HTML shared across pages.
+static const char HTML_STYLE[] PROGMEM =
+    "body{font-family:Arial,sans-serif;max-width:480px;margin:40px auto;"
+    "padding:20px;background:#f4f4f4;}"
+    "h1{color:#d63031;}"
+    ".card{background:#fff;padding:20px;border-radius:8px;"
+    "box-shadow:0 2px 6px rgba(0,0,0,.15);}"
+    "label{display:block;margin-top:14px;font-weight:bold;}"
+    "input,select{width:100%;padding:8px;margin-top:4px;box-sizing:border-box;"
+    "border:1px solid #ccc;border-radius:4px;font-size:1em;}"
+    ".btn{display:block;margin-top:22px;width:100%;padding:12px;background:#d63031;"
+    "color:#fff;border:none;border-radius:4px;font-size:1em;cursor:pointer;}"
+    ".btn:hover{background:#c0392b;}"
+    ".note{color:#636e72;font-size:.85em;margin-top:6px;}";
 
-    WiFi.mode(WIFI_AP);
+static void sendPage(int code, const String& body) {
+    String page;
+    page.reserve(800 + body.length());
+    page += "<!DOCTYPE html><html><head>"
+            "<meta charset='UTF-8'>"
+            "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<title>Shelly BLE Config</title>"
+            "<style>";
+    page += FPSTR(HTML_STYLE);
+    page += "</style></head><body><div class='card'>"
+            "<h1>&#x1F4F6; Shelly BLE Config</h1>";
+    page += body;
+    page += "</div></body></html>";
+    server.send(code, "text/html", page);
+}
 
-    WiFiManager wm;
-    wm.setDebugOutput(false);
-    wm.setConfigPortalBlocking(true);
-    wm.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT_S);
+static void handleRoot() {
+    String body;
+    body.reserve(600);
+    body += "<form action='/save' method='POST'>";
+    body += "<label>Shelly Device Name (exact, optional)</label>";
+    body += "<input type='text' name='name_filter'"
+            " placeholder='ShellyPlus1-ABCDEF'"
+            " value='" + configuredNameFilter + "'"
+            " maxlength='" + String(MAX_NAME_FILTER_LEN) + "'>";
+    body += "<p class='note'>Leave empty to connect to the strongest nearby Shelly.</p>";
+    body += "<button class='btn' type='submit'>Save &amp; Restart</button>";
+    body += "</form>";
+    sendPage(200, body);
+}
 
-    // Show only custom parameter page (no WiFi credential setup page).
-    std::vector<const char*> menu = {"param", "exit"};
-    wm.setMenu(menu);
-
-    char nameBuf[MAX_NAME_FILTER_LEN + 1] = {0};
-    configuredNameFilter.toCharArray(nameBuf, sizeof(nameBuf));
-
-    WiFiManagerParameter pShellyName(
-        "shelly_name",
-        "Shelly Device Name (exact, optional)",
-        nameBuf,
-        sizeof(nameBuf)
-    );
-
-    wm.addParameter(&pShellyName);
-
-    bool portalOk = wm.startConfigPortal(CONFIG_AP_SSID, CONFIG_AP_PASSWORD);
-
-    String newFilter = String(pShellyName.getValue());
+static void handleSave() {
+    String newFilter = server.hasArg("name_filter") ? server.arg("name_filter") : "";
     newFilter.trim();
 
-    if (!portalOk) {
-        Serial.println("Config portal timed out or failed. Restarting ...");
-        delay(1000);
-        ESP.restart();
+    if (newFilter.length() > MAX_NAME_FILTER_LEN) {
+        String body = "<p style='color:red'>Name is too long.</p>"
+                      "<a href='/'>&#x2190; Back</a>";
+        sendPage(400, body);
+        return;
     }
 
     saveConfig(newFilter);
 
-    Serial.println("Configuration saved:");
+    String body;
+    body += "<p style='color:green'>&#x2714; Configuration saved!</p>";
     if (newFilter.length() > 0) {
-        Serial.println("  Name filter: " + newFilter);
+        body += "<p>Name filter: <b>" + newFilter + "</b></p>";
     } else {
-        Serial.println("  Name filter: (none)");
+        body += "<p>Name filter: <b>(none)</b></p>";
+    }
+    body += "<p>The device will restart in a moment ...</p>";
+    sendPage(200, body);
+
+    delay(1500);
+    ESP.restart();
+}
+
+/** Redirect everything else back to the root form (captive-portal style). */
+static void handleNotFound() {
+    server.sendHeader("Location", "/", true);
+    server.send(302, "text/plain", "Redirecting ...");
+}
+
+static void runConfigPortal() {
+    Serial.println("--- Configuration mode ---");
+    Serial.printf("AP SSID: %s\n", CONFIG_AP_SSID);
+    Serial.printf("AP IP:   %s\n", CONFIG_AP_IP.toString().c_str());
+    Serial.println("Open http://192.168.4.1 and set Shelly device name filter.");
+    Serial.println("Leave it empty to connect to any nearby Shelly.");
+
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(CONFIG_AP_IP, CONFIG_AP_IP, IPAddress(255, 255, 255, 0));
+    WiFi.softAP(CONFIG_AP_SSID, CONFIG_AP_PASSWORD);
+
+    server.on("/", HTTP_GET, handleRoot);
+    server.on("/save", HTTP_POST, handleSave);
+    server.onNotFound(handleNotFound);
+    server.begin();
+
+    uint32_t startMs = millis();
+    while (millis() - startMs < (CONFIG_PORTAL_TIMEOUT_S * 1000UL)) {
+        server.handleClient();
+        delay(2);
     }
 
-    wm.stopConfigPortal();
+    Serial.println("Config timeout reached. Restarting ...");
+
+    server.stop();
     WiFi.softAPdisconnect(true);
     WiFi.disconnect(true, true);
     WiFi.mode(WIFI_OFF);
 
-    Serial.println("Restarting ...");
-    delay(1000);
     ESP.restart();
 }
 
@@ -196,11 +251,11 @@ static bool scanAndConnectToShelly() {
         }
 
         Serial.printf("  [%u] %s  RSSI=%d  name=%s  type=%u\n",
-                      static_cast<unsigned>(i),
-                      result.address.c_str(),
-                      result.rssi,
-                      result.name.length() ? result.name.c_str() : "(none)",
-                      result.addressType);
+               static_cast<unsigned>(i),
+               result.address.c_str(),
+               result.rssi,
+               result.name.length() ? result.name.c_str() : "(none)",
+               result.addressType);
 
         if (result.rssi > bestResult.rssi) {
             bestIndex = i;

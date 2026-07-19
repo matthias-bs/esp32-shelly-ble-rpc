@@ -174,7 +174,7 @@ static void handleSave() {
     String body;
     body += "<p style='color:green'>&#x2714; Configuration saved!</p>";
     if (newFilter.length() > 0) {
-        body += "<p>Name filter: <b>" + newFilter + "</b></p>";
+        body += "<p>Name filter: <b>" + htmlEscape(newFilter) + "</b></p>";
     } else {
         body += "<p>Name filter: <b>(none)</b></p>";
     }

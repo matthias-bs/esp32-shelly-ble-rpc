@@ -22,7 +22,8 @@
  *
  * Notes:
  *   - Leave the name field empty to connect to the strongest nearby Shelly.
- *   - Name match is exact (same behavior as ShellyBleRpc::scan(nameFilter)).
+ *   - Name match is exact and case-sensitive (same behavior as
+ *     ShellyBleRpc::scan(nameFilter)).
  *   - WiFi and BLE are not used at the same time.
  *
  * Dependencies:
@@ -139,7 +140,7 @@ static void handleRoot() {
     String body;
     body.reserve(600);
     body += "<form action='/save' method='POST'>";
-    body += "<label>Shelly Device Name (exact, optional)</label>";
+    body += "<label>Shelly Device Name (exact, case-sensitive, optional)</label>";
     body += "<input type='text' name='name_filter'"
             " placeholder='ShellyPlus1-ABCDEF'"
             " value='" + configuredNameFilter + "'"

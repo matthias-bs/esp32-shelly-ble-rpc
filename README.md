@@ -130,11 +130,11 @@ void loop() {}
 | `bool begin(const char* deviceName = "ShellyBleRpc")` | Initialise the NimBLE stack.  Call once in `setup()`. |
 | `bool connect(const char* address, uint8_t addressType = BLE_ADDR_PUBLIC)` | Connect by MAC address string. |
 | `bool connect(const NimBLEAddress& address)` | Connect by `NimBLEAddress` object. |
-| `bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan for nearby Shelly devices advertising the RPC service. |
+| `bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan for nearby Shelly devices advertising the RPC service. If `nameFilter` is set, matching is exact and case-sensitive. |
 | `size_t getScanResultCount() const` | Return the number of matching devices from the last scan. |
 | `bool getScanResult(size_t index, ScanResult& result) const` | Copy one scan result from the last scan. |
 | `bool connectToScanResult(size_t index)` | Connect to a device from the last scan result set. |
-| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device. |
+| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device. If `nameFilter` is set, matching is exact and case-sensitive. |
 | `void disconnect()` | Disconnect from the device. |
 | `bool isConnected() const` | `true` if a BLE connection is active. |
 

@@ -270,10 +270,10 @@ restarts and connects to Shelly automatically from then on.
 
 [`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
 
-Combines scan-and-connect with first-boot configuration using
-**WiFiManager**. The ESP32 opens a temporary config portal where you can set
-an optional exact Shelly advertised device name filter. The value is stored
-in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
+Combines scan-and-connect with first-boot configuration using a temporary WiFi
+access point and a minimal WebServer-based config page where you can set
+an optional exact, case-sensitive Shelly advertised device name filter. The
+value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
 
 | Step | Action |
 |------|--------|

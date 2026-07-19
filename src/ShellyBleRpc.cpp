@@ -8,6 +8,44 @@
 #include "ShellyBleRpc.h"
 #include <stdarg.h>
 
+namespace {
+constexpr uint8_t  kConnectAttempts = 4;
+constexpr uint16_t kConnectBackoffMs[] = {250, 500, 1000};
+constexpr uint8_t  kRpcRetryAttempts = 3;
+constexpr uint16_t kRpcRetryBackoffMs[] = {150, 400};
+constexpr uint16_t kReadEmptyDelayMs = 10;
+
+uint16_t retryJitterMs() {
+    static uint32_t lcg = 0xA5A5A5A5u;
+    lcg = (lcg * 1664525u) + 1013904223u + static_cast<uint32_t>(micros());
+    return static_cast<uint16_t>(lcg % 101u);
+}
+
+uint32_t connectRetryDelayMs(uint8_t attempt) {
+    if (attempt >= kConnectAttempts) {
+        return 0;
+    }
+
+    size_t index = static_cast<size_t>(attempt - 1);
+    if (index >= (sizeof(kConnectBackoffMs) / sizeof(kConnectBackoffMs[0]))) {
+        index = (sizeof(kConnectBackoffMs) / sizeof(kConnectBackoffMs[0])) - 1;
+    }
+    return static_cast<uint32_t>(kConnectBackoffMs[index]) + retryJitterMs();
+}
+
+uint32_t rpcRetryDelayMs(uint8_t retryNumber) {
+    if (retryNumber == 0) {
+        return 0;
+    }
+
+    size_t index = static_cast<size_t>(retryNumber - 1);
+    if (index >= (sizeof(kRpcRetryBackoffMs) / sizeof(kRpcRetryBackoffMs[0]))) {
+        index = (sizeof(kRpcRetryBackoffMs) / sizeof(kRpcRetryBackoffMs[0])) - 1;
+    }
+    return static_cast<uint32_t>(kRpcRetryBackoffMs[index]);
+}
+}  // namespace
+
 // ---------------------------------------------------------------------------
 // Static member initialisation
 // ---------------------------------------------------------------------------
@@ -118,37 +156,64 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
         _pClient->setClientCallbacks(_pCallbacks, false);
     }
 
-    _debugLog("Connecting to %s ...", address.toString().c_str());
+    for (uint8_t attempt = 1; attempt <= kConnectAttempts; ++attempt) {
+        _debugLog("Connecting to %s (attempt %u/%u) ...",
+                  address.toString().c_str(),
+                  static_cast<unsigned>(attempt),
+                  static_cast<unsigned>(kConnectAttempts));
 
-    if (!_pClient->connect(address)) {
-        _debugLog("Connection failed");
-        return false;
+        if (!_pClient->connect(address)) {
+            _debugLog("Connection failed");
+            if (attempt < kConnectAttempts) {
+                delay(connectRetryDelayMs(attempt));
+                continue;
+            }
+            return false;
+        }
+
+        // Proactively establish BLE security before any GATT operations.
+        // When the ESP32 has previously bonded with this Shelly (keys stored in
+        // NVS), NimBLE will use the Long-Term Key to encrypt the link without
+        // requiring the user to enable pairing mode again.  On first use the
+        // Shelly must have "Bluetooth pairing" enabled in the Shelly app or web
+        // UI so that the pairing can complete.  If security is not required by
+        // the device, this call is a no-op from the user's perspective.
+        _debugLog("Establishing BLE security ...");
+        if (!_pClient->secureConnection()) {
+            if (!_pClient->isConnected()) {
+                _debugLog("Connection dropped during security handshake; retrying");
+                if (attempt < kConnectAttempts) {
+                    delay(connectRetryDelayMs(attempt));
+                    continue;
+                }
+                return false;
+            }
+
+            _debugLog("BLE security not established – if the Shelly requires "
+                      "authentication, enable Bluetooth pairing in the Shelly "
+                      "app / web UI and reconnect to bond the devices");
+        }
+
+        _debugLog("Setting up RPC service ...");
+
+        if (_setupService()) {
+            _debugLog("Ready (MTU=%d)", _pClient->getMTU());
+            return true;
+        }
+
+        if (!_pClient->isConnected()) {
+            _debugLog("Disconnected before RPC service setup completed");
+        } else {
+            _debugLog("RPC service setup failed – disconnecting");
+        }
+        disconnect();
+
+        if (attempt < kConnectAttempts) {
+            delay(connectRetryDelayMs(attempt));
+        }
     }
 
-    // Proactively establish BLE security before any GATT operations.
-    // When the ESP32 has previously bonded with this Shelly (keys stored in
-    // NVS), NimBLE will use the Long-Term Key to encrypt the link without
-    // requiring the user to enable pairing mode again.  On first use the
-    // Shelly must have "Bluetooth pairing" enabled in the Shelly app or web
-    // UI so that the pairing can complete.  If security is not required by
-    // the device, this call is a no-op from the user's perspective.
-    _debugLog("Establishing BLE security ...");
-    if (!_pClient->secureConnection()) {
-        _debugLog("BLE security not established – if the Shelly requires "
-                  "authentication, enable Bluetooth pairing in the Shelly "
-                  "app / web UI and reconnect to bond the devices");
-    }
-
-    _debugLog("Setting up RPC service ...");
-
-    if (!_setupService()) {
-        _debugLog("RPC service setup failed – disconnecting");
-        _pClient->disconnect();
-        return false;
-    }
-
-    _debugLog("Ready (MTU=%d)", _pClient->getMTU());
-    return true;
+    return false;
 }
 
 bool ShellyBleRpc::scan(uint32_t durationMs, const char* nameFilter) {
@@ -420,6 +485,7 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         return false;
     }
     if (timeoutMs == 0) timeoutMs = _timeoutMs;
+    uint32_t deadline = millis() + timeoutMs;
     // Build the JSON-RPC 2.0 request.
     String request;
     request.reserve(128);
@@ -434,24 +500,81 @@ bool ShellyBleRpc::call(const char* method, const char* params,
 
     _debugLog("RPC >> %s", request.c_str());
 
-    _responseBuffer = "";
-    _responseLength = 0;
-    _responseLengthReady = false;
-    if (_responseSemaphore) {
-        while (xSemaphoreTake(_responseSemaphore, 0) == pdTRUE) {}
-    }
-    if (!_sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
-                         request.length())) {
+    auto prepareRpcReceiveState = [this]() {
+        _responseBuffer = "";
+        _responseLength = 0;
+        _responseLengthReady = false;
+        if (_responseSemaphore) {
+            while (xSemaphoreTake(_responseSemaphore, 0) == pdTRUE) {}
+        }
+    };
+
+    auto trySend = [&]() {
+        prepareRpcReceiveState();
+        return _sendFragmented(reinterpret_cast<const uint8_t*>(request.c_str()),
+                               request.length());
+    };
+
+    if (!trySend()) {
         _debugLog("RPC send failed for method %s (write error – ensure the "
                   "device is bonded or does not require BLE authentication)",
                   method);
-        return false;
+
+        bool rpcSent = false;
+        for (uint8_t retry = 1; retry < kRpcRetryAttempts; ++retry) {
+            bool havePeerAddress = (_pClient != nullptr);
+            NimBLEAddress peerAddress;
+            if (havePeerAddress) {
+                peerAddress = _pClient->getPeerAddress();
+            }
+
+            if (!havePeerAddress) {
+                _debugLog("No peer address available for RPC retry");
+                break;
+            }
+
+            uint32_t backoffMs = rpcRetryDelayMs(retry);
+            if (backoffMs > 0) {
+                int32_t remaining = static_cast<int32_t>(deadline - millis());
+                if (remaining <= 0) break;
+                delay(backoffMs < static_cast<uint32_t>(remaining)
+                          ? backoffMs
+                          : static_cast<uint32_t>(remaining));
+            }
+
+            _debugLog("Retrying RPC (%u/%u) after reconnecting to %s ...",
+                      static_cast<unsigned>(retry + 1),
+                      static_cast<unsigned>(kRpcRetryAttempts),
+                      peerAddress.toString().c_str());
+
+            disconnect();
+            if (!connect(peerAddress)) {
+                _debugLog("Reconnect failed for RPC retry %u/%u",
+                          static_cast<unsigned>(retry + 1),
+                          static_cast<unsigned>(kRpcRetryAttempts));
+                continue;
+            }
+
+            if (trySend()) {
+                rpcSent = true;
+                break;
+            }
+
+            _debugLog("RPC send retry %u/%u failed for method %s",
+                      static_cast<unsigned>(retry + 1),
+                      static_cast<unsigned>(kRpcRetryAttempts),
+                      method);
+        }
+
+        if (!rpcSent) {
+            return false;
+        }
     }
 
-    uint32_t deadline = millis() + timeoutMs;
-
-    if (!_responseSemaphore ||
-        xSemaphoreTake(_responseSemaphore, pdMS_TO_TICKS(timeoutMs)) != pdTRUE ||
+    int32_t semRemaining = static_cast<int32_t>(deadline - millis());
+    if (semRemaining <= 0 || !_responseSemaphore ||
+        xSemaphoreTake(_responseSemaphore,
+                       pdMS_TO_TICKS(static_cast<uint32_t>(semRemaining))) != pdTRUE ||
         !_responseLengthReady || _responseLength == 0) {
         _debugLog("RPC timeout (%lu ms) waiting for response length for method %s",
                   timeoutMs, method);
@@ -466,7 +589,7 @@ bool ShellyBleRpc::call(const char* method, const char* params,
            static_cast<int32_t>(millis() - deadline) < 0) {
         std::string chunk = _pDataChar->readValue();
         if (chunk.empty()) {
-            delay(20);
+            delay(kReadEmptyDelayMs);
             continue;
         }
 

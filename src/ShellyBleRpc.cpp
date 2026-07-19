@@ -485,6 +485,7 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         return false;
     }
     if (timeoutMs == 0) timeoutMs = _timeoutMs;
+    uint32_t deadline = millis() + timeoutMs;
     // Build the JSON-RPC 2.0 request.
     String request;
     request.reserve(128);
@@ -534,7 +535,11 @@ bool ShellyBleRpc::call(const char* method, const char* params,
 
             uint32_t backoffMs = rpcRetryDelayMs(retry);
             if (backoffMs > 0) {
-                delay(backoffMs);
+                int32_t remaining = static_cast<int32_t>(deadline - millis());
+                if (remaining <= 0) break;
+                delay(backoffMs < static_cast<uint32_t>(remaining)
+                          ? backoffMs
+                          : static_cast<uint32_t>(remaining));
             }
 
             _debugLog("Retrying RPC (%u/%u) after reconnecting to %s ...",
@@ -566,10 +571,10 @@ bool ShellyBleRpc::call(const char* method, const char* params,
         }
     }
 
-    uint32_t deadline = millis() + timeoutMs;
-
-    if (!_responseSemaphore ||
-        xSemaphoreTake(_responseSemaphore, pdMS_TO_TICKS(timeoutMs)) != pdTRUE ||
+    int32_t semRemaining = static_cast<int32_t>(deadline - millis());
+    if (semRemaining <= 0 || !_responseSemaphore ||
+        xSemaphoreTake(_responseSemaphore,
+                       pdMS_TO_TICKS(static_cast<uint32_t>(semRemaining))) != pdTRUE ||
         !_responseLengthReady || _responseLength == 0) {
         _debugLog("RPC timeout (%lu ms) waiting for response length for method %s",
                   timeoutMs, method);

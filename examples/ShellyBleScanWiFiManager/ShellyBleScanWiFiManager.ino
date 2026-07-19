@@ -35,6 +35,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <WiFi.h>
+#include <vector>
 #include <WiFiManager.h>
 #include <ShellyBleRpc.h>
 
@@ -106,12 +107,16 @@ static void runConfigPortal() {
     Serial.println("Open the captive portal and set Shelly device name filter.");
     Serial.println("Leave it empty to connect to any Shelly.");
 
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_AP);
 
     WiFiManager wm;
     wm.setDebugOutput(false);
     wm.setConfigPortalBlocking(true);
     wm.setConfigPortalTimeout(CONFIG_PORTAL_TIMEOUT_S);
+
+    // Show only custom parameter page (no WiFi credential setup page).
+    std::vector<const char*> menu = {"param", "exit"};
+    wm.setMenu(menu);
 
     char nameBuf[MAX_NAME_FILTER_LEN + 1] = {0};
     configuredNameFilter.toCharArray(nameBuf, sizeof(nameBuf));

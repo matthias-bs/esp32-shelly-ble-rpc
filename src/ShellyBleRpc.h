@@ -128,12 +128,13 @@ public:
      * service UUID from their advertisement packets (e.g. when in pairing
      * mode).
      *
-     * Results can be read with getScanResultCount() / getScanResult() and
-     * connected to with connectToScanResult().
-     *
-     * @param durationMs Scan duration in milliseconds.
-     * @param nameFilter Optional exact advertised-name filter, or nullptr.
-     * @return true if at least one matching device was found.
+    * Results can be read with getScanResultCount() / getScanResult() and
+    * connected to with connectToScanResult().
+    *
+    * @param durationMs Scan duration in milliseconds.
+    * @param nameFilter Optional exact, case-sensitive advertised-name filter,
+    *                   or nullptr.
+    * @return true if at least one matching device was found.
      */
     bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS,
               const char* nameFilter = nullptr);
@@ -159,7 +160,8 @@ public:
     /**
      * @brief Scan and connect to the strongest matching Shelly device.
      * @param durationMs Scan duration in milliseconds.
-     * @param nameFilter Optional exact advertised-name filter, or nullptr.
+     * @param nameFilter Optional exact, case-sensitive advertised-name filter,
+     *                   or nullptr.
      * @return true if a matching device was found and connected.
      */
     bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS,

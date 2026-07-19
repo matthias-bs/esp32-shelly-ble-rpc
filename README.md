@@ -22,7 +22,7 @@ Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE
 - Automatic BLE MTU negotiation (up to 517 bytes) for efficient data transfer
 - FreeRTOS-semaphore-based synchronisation (no busy-wait polling)
 - Debug output toggle
-- Three ready-to-use examples
+- Four ready-to-use examples
 
 ---
 
@@ -264,6 +264,22 @@ restarts and connects to Shelly automatically from then on.
 | 2 | Open `http://192.168.4.1` in a browser |
 | 3 | Enter the BLE address and press **Save & Restart** |
 | 4 | On restart the ESP32 connects to the Shelly via BLE |
+| Re-configure | Hold GPIO0 LOW while pressing RESET |
+
+### ShellyBleScanWiFiManager
+
+[`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
+
+Combines scan-and-connect with first-boot configuration using
+**WiFiManager**. The ESP32 opens a temporary config portal where you can set
+an optional exact Shelly advertised device name filter. The value is stored
+in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
+
+| Step | Action |
+|------|--------|
+| 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
+| 2 | Open the captive portal and enter the optional exact Shelly name |
+| 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
 | Re-configure | Hold GPIO0 LOW while pressing RESET |
 
 ---

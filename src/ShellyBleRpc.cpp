@@ -205,8 +205,8 @@ bool ShellyBleRpc::connect(const NimBLEAddress& address) {
             _debugLog("Disconnected before RPC service setup completed");
         } else {
             _debugLog("RPC service setup failed – disconnecting");
-            _pClient->disconnect();
         }
+        disconnect();
 
         if (attempt < kConnectAttempts) {
             delay(connectRetryDelayMs(attempt));

@@ -8,9 +8,9 @@
  * results, connects to the strongest match, then reads generic Shelly RPC
  * data that is available on any supported device class.
  *
- * Optional: set SHELLY_NAME_FILTER to the exact advertised device name to
- * target one specific Shelly. Leave it empty to connect to the strongest
- * nearby Shelly device.
+ * Optional: set SHELLY_NAME_FILTER to the exact, case-sensitive advertised
+ * device name to target one specific Shelly. Leave it empty to connect to
+ * the strongest nearby Shelly device.
  *
  * License: MIT
  */
@@ -22,7 +22,7 @@
 // User configuration
 // ============================================================================
 
-/** Exact advertised device name, e.g. "shellyplus1-123456", or "" for any. */
+/** Exact, case-sensitive advertised device name, e.g. "shellyplus1-123456", or "" for any. */
 static const char* SHELLY_NAME_FILTER = "";
 
 /** Scan time in milliseconds. */

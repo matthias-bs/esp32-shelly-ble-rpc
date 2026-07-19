@@ -22,7 +22,7 @@ Arduino library for controlling **Shelly Gen2+** devices via **JSON-RPC over BLE
 - Automatic BLE MTU negotiation (up to 517 bytes) for efficient data transfer
 - FreeRTOS-semaphore-based synchronisation (no busy-wait polling)
 - Debug output toggle
-- Three ready-to-use examples
+- Four ready-to-use examples
 
 ---
 
@@ -130,11 +130,11 @@ void loop() {}
 | `bool begin(const char* deviceName = "ShellyBleRpc")` | Initialise the NimBLE stack.  Call once in `setup()`. |
 | `bool connect(const char* address, uint8_t addressType = BLE_ADDR_PUBLIC)` | Connect by MAC address string. |
 | `bool connect(const NimBLEAddress& address)` | Connect by `NimBLEAddress` object. |
-| `bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan for nearby Shelly devices advertising the RPC service. |
+| `bool scan(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan for nearby Shelly devices that advertise the RPC service UUID, or whose advertised name starts with "Shelly" (case-insensitive). If `nameFilter` is set, matching is exact and case-sensitive. |
 | `size_t getScanResultCount() const` | Return the number of matching devices from the last scan. |
 | `bool getScanResult(size_t index, ScanResult& result) const` | Copy one scan result from the last scan. |
 | `bool connectToScanResult(size_t index)` | Connect to a device from the last scan result set. |
-| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device. |
+| `bool scanAndConnect(uint32_t durationMs = SHELLY_BLE_RPC_DEFAULT_SCAN_MS, const char* nameFilter = nullptr)` | Scan and connect to the strongest matching Shelly device that advertises the RPC service UUID, or whose advertised name starts with "Shelly" (case-insensitive). If `nameFilter` is set, matching is exact and case-sensitive. |
 | `void disconnect()` | Disconnect from the device. |
 | `bool isConnected() const` | `true` if a BLE connection is active. |
 
@@ -264,6 +264,22 @@ restarts and connects to Shelly automatically from then on.
 | 2 | Open `http://192.168.4.1` in a browser |
 | 3 | Enter the BLE address and press **Save & Restart** |
 | 4 | On restart the ESP32 connects to the Shelly via BLE |
+| Re-configure | Hold GPIO0 LOW while pressing RESET |
+
+### ShellyBleScanWiFiManager
+
+[`examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino`](examples/ShellyBleScanWiFiManager/ShellyBleScanWiFiManager.ino)
+
+Combines scan-and-connect with first-boot configuration using a temporary WiFi
+access point and a minimal WebServer-based config page where you can set
+an optional exact, case-sensitive Shelly advertised device name filter. The
+value is stored in NVS, WiFi is turned off, and BLE scan-and-connect then targets that name.
+
+| Step | Action |
+|------|--------|
+| 1 | On first boot (or with GPIO0 held LOW), connect to AP `ShellyBLE-Setup` (password `12345678`) |
+| 2 | Open `http://192.168.4.1` and enter the optional exact Shelly name |
+| 3 | Save; the ESP32 restarts and scans/connects over BLE using the configured filter |
 | Re-configure | Hold GPIO0 LOW while pressing RESET |
 
 ---

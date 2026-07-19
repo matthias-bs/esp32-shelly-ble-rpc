@@ -19,23 +19,22 @@ ShellyBleRpc* ShellyBleRpc::_instance = nullptr;
 
 void ShellyBleRpc::ClientCallbacks::onConnect(NimBLEClient* pClient) {
     if (_parent->_debug) {
-        Serial.printf("[ShellyBleRpc] Connected to %s\n",
-                      pClient->getPeerAddress().toString().c_str());
+        log_i("Connected to %s", pClient->getPeerAddress().toString().c_str());
     }
 }
 
 void ShellyBleRpc::ClientCallbacks::onDisconnect(NimBLEClient* pClient, int reason) {
     if (_parent->_debug) {
-        Serial.printf("[ShellyBleRpc] Disconnected from %s (reason: %d)\n",
-                      pClient->getPeerAddress().toString().c_str(), reason);
+        log_i("Disconnected from %s (reason: %d)",
+              pClient->getPeerAddress().toString().c_str(), reason);
     }
 }
 
 void ShellyBleRpc::ClientCallbacks::onAuthenticationComplete(NimBLEConnInfo& connInfo) {
     if (_parent->_debug) {
-        Serial.printf("[ShellyBleRpc] Authentication %s (encrypted: %s)\n",
-                      connInfo.isEncrypted() ? "succeeded" : "failed",
-                      connInfo.isEncrypted() ? "yes" : "no");
+        log_i("Authentication %s (encrypted: %s)",
+              connInfo.isEncrypted() ? "succeeded" : "failed",
+              connInfo.isEncrypted() ? "yes" : "no");
     }
 }
 
@@ -604,6 +603,5 @@ void ShellyBleRpc::_debugLog(const char* fmt, ...) {
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-    Serial.print("[ShellyBleRpc] ");
-    Serial.println(buf);
+    log_d("%s", buf);
 }

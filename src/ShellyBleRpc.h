@@ -219,9 +219,17 @@ public:
     /**
      * @brief Switch.GetStatus – read the current state of a switch component.
      * @param id Component index (0-based).
-     *
-     * The method keeps the historical switchGet() name for API compatibility.
      */
+    bool switchGetStatus(uint8_t id, String& response);
+
+    /**
+     * @brief Read the current state of a switch component.
+     * @param id Component index (0-based).
+     *
+     * @deprecated Use switchGetStatus() instead. The name switchGet() is
+     * retained for source compatibility.
+     */
+    [[deprecated("Use switchGetStatus() instead")]]
     bool switchGet(uint8_t id, String& response);
 
     /**

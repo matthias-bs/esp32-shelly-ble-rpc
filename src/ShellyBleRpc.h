@@ -217,8 +217,10 @@ public:
     bool shellyReboot(String& response);
 
     /**
-     * @brief Switch.Get – read the current state of a switch component.
+     * @brief Switch.GetStatus – read the current state of a switch component.
      * @param id Component index (0-based).
+     *
+     * The method keeps the historical switchGet() name for API compatibility.
      */
     bool switchGet(uint8_t id, String& response);
 

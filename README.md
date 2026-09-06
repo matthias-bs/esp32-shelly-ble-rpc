@@ -236,7 +236,8 @@ Pass `timeoutMs = 0` (the default) to use the timeout configured via `setTimeout
 
 | Method | RPC call |
 |--------|----------|
-| `switchGet(id, response)` | `Switch.Get` |
+| `switchGetStatus(id, response)` | `Switch.GetStatus` |
+| `switchGet(id, response)` | Deprecated alias for `switchGetStatus(id, response)` |
 | `switchSet(id, state, response)` | `Switch.Set` |
 | `switchToggle(id, response)` | `Switch.Toggle` |
 

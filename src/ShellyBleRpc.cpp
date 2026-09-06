@@ -641,7 +641,7 @@ bool ShellyBleRpc::shellyReboot(String& response) {
 bool ShellyBleRpc::switchGet(uint8_t id, String& response) {
     char params[24];
     snprintf(params, sizeof(params), "{\"id\":%u}", id);
-    return call("Switch.Get", params, response);
+    return call("Switch.GetStatus", params, response);
 }
 
 bool ShellyBleRpc::switchSet(uint8_t id, bool state, String& response) {

@@ -640,7 +640,7 @@ bool ShellyBleRpc::shellyReboot(String& response) {
 
 bool ShellyBleRpc::switchGetStatus(uint8_t id, String& response) {
     char params[24];
-    snprintf(params, sizeof(params), "{\"id\":%u}", id);
+    snprintf(params, sizeof(params), "{\"id\":%u}", static_cast<unsigned>(id));
     return call("Switch.GetStatus", params, response);
 }
 
